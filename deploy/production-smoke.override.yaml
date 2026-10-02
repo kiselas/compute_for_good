@@ -1,0 +1,8 @@
+# Local-only production-mode validation. Never use this override on the server.
+services:
+  postgres:
+    ports: !override ['127.0.0.1:55473:5432']
+  backend:
+    ports: !override ['127.0.0.1:8210:8000']
+  edge:
+    ports: !override ['127.0.0.1:5380:80']

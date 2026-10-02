@@ -1,0 +1,18 @@
+services:
+  postgres:
+    ports: !override ['127.0.0.1:55472:5432']
+  redis:
+    ports: !override ['127.0.0.1:56382:6379']
+  backend:
+    ports: !override ['127.0.0.1:8110:8000']
+    environment: &qa-env
+      PUBLIC_URL: http://127.0.0.1:5280
+      FRONTEND_URL: http://127.0.0.1:5280
+      CORS_ORIGINS: http://127.0.0.1:5280,http://localhost:5280
+      SECURE_COOKIES: 'false'
+  worker:
+    environment: *qa-env
+  integration_worker:
+    environment: *qa-env
+  frontend:
+    ports: !override ['127.0.0.1:5280:80']

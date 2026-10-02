@@ -1,0 +1,105 @@
+name: cfg-production
+x-service: &service
+  restart: unless-stopped
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+x-env: &env
+  DEMO_MODE: 'false'
+  DATABASE_URL: postgresql+psycopg://cfg:${POSTGRES_PASSWORD:?Generate deployment secrets first}@postgres:5432/cfg
+  REDIS_URL: redis://redis:6379/0
+  PUBLIC_URL: ${PUBLIC_URL:?Set the public HTTPS origin}
+  FRONTEND_URL: ${PUBLIC_URL:?Set the public HTTPS origin}
+  CORS_ORIGINS: ${PUBLIC_URL:?Set the public HTTPS origin}
+  SECURE_COOKIES: ${SECURE_COOKIES:-true}
+  REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?Generate deployment secrets first}
+  GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+  GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
+  GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
+  OAUTH_SECRET_KEY: ${OAUTH_SECRET_KEY:?Generate deployment OAuth encryption key first}
+services:
+  postgres:
+    <<: *service
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: cfg
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Generate deployment secrets first}
+      POSTGRES_DB: cfg
+    volumes: [cfg-postgres:/var/lib/postgresql/data]
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U cfg -d cfg']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  redis:
+    <<: *service
+    image: redis:7-alpine
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    volumes: [cfg-redis:/data]
+    healthcheck:
+      test: [CMD, redis-cli, ping]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  backend:
+    <<: *service
+    build: ./backend
+    environment: *env
+    command: [sh, -c, 'alembic upgrade head && uvicorn computeforgood.app:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*']
+    depends_on:
+      postgres: {condition: service_healthy}
+      redis: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, python, -c, "import json,urllib.request; assert json.load(urllib.request.urlopen('http://127.0.0.1:8000/api/health'))['status']=='ok'"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+  worker:
+    <<: *service
+    build: ./backend
+    environment:
+      <<: *env
+      WORKER_MODE: coordination
+    command: [python, -m, computeforgood.worker]
+    depends_on:
+      backend: {condition: service_healthy}
+  integration_worker:
+    <<: *service
+    build: ./backend
+    environment:
+      <<: *env
+      WORKER_MODE: integrations
+    command: [python, -m, computeforgood.worker]
+    depends_on:
+      backend: {condition: service_healthy}
+  frontend:
+    <<: *service
+    build: ./frontend
+    depends_on:
+      backend: {condition: service_healthy}
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1/]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+  edge:
+    <<: *service
+    image: caddy:2-alpine
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?Set the public hostname}
+    ports: ['80:80', '443:443', '443:443/udp']
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - cfg-caddy-data:/data
+      - cfg-caddy-config:/config
+    depends_on:
+      frontend: {condition: service_healthy}
+volumes:
+  cfg-postgres:
+  cfg-redis:
+  cfg-caddy-data:
+  cfg-caddy-config:
