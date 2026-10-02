@@ -64,6 +64,8 @@ import {
   type Task,
   type User,
 } from "./api";
+import { t, useLocale, formatDate, formatNumber } from "./i18n";
+import LanguageSwitcher from "./LanguageSwitcher";
 
 const Session = createContext<{
   user: User | null;
@@ -78,12 +80,56 @@ function useData<T>(path: string, enabled = true) {
     enabled,
   });
 }
-const readable = (value: string) => value.replaceAll("_", " ").toLowerCase();
-const date = (value: string) =>
-  new Date(value).toLocaleString(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+const enumLabels: Record<string, string> = {
+  LOW: "Low",
+  NORMAL: "Normal",
+  HIGH: "High",
+  CRITICAL: "Critical",
+  BASIC: "Basic",
+  STRONG: "Strong",
+  FRONTIER: "Frontier",
+  EASY: "Easy",
+  MEDIUM: "Medium",
+  HARD: "Hard",
+  EXPERT: "Expert",
+  AVAILABLE: "Available",
+  VERIFIED: "Verified",
+  APPROVE: "Approve",
+  MERGED: "Merged",
+  REVIEW_PASSED: "Review passed",
+  ACTIVE: "Active",
+  BLOCK: "Block",
+  REJECTED: "Rejected",
+  EXPIRED: "Expired",
+  CLAIMED: "Claimed",
+  DRAFT: "Draft",
+  IN_PROGRESS: "In progress",
+  FINALIZING: "Finalizing",
+  SUBMITTED: "Submitted",
+  REVIEWING: "Reviewing",
+  CLOSED: "Closed",
+  INVALID: "Invalid",
+  SUSPENDED: "Suspended",
+  CANDIDATE: "Candidate",
+  RECOVERABLE: "Recoverable",
+  CHANGES_NEEDED: "Changes needed",
+  AWAITING_MAINTAINER: "Awaiting maintainer",
+  BLINDED: "Blinded",
+  DONE: "Done",
+  FAILED: "Failed",
+  PENDING: "Pending",
+  RELEASED: "Released",
+  REQUEST_CHANGES: "Request changes",
+  IMPLEMENTATION: "Implementation",
+  REVIEW: "Review",
+  CONTRIBUTOR: "Contributor",
+  REVIEWER: "Reviewer",
+  OPERATOR: "Operator",
+  MAINTAINER: "Maintainer",
+};
+const readable = (value: string) =>
+  t(enumLabels[value.toUpperCase()] ?? value.replaceAll("_", " "));
+const date = (value: string) => formatDate(value);
 function rememberLease(lease: Lease) {
   if (lease.token)
     localStorage.setItem(`cfg-lease:${lease.user_id}:${lease.id}`, lease.token);
@@ -175,17 +221,17 @@ function ErrorBox({ error, retry }: { error: unknown; retry?: () => void }) {
     <div className="error-box" role="alert">
       <strong>
         {error instanceof ApiError && error.status === 409
-          ? "This work changed while you were working."
-          : "We could not complete that request."}
+          ? t("This work changed while you were working.")
+          : t("We could not complete that request.")}
       </strong>
       <p>
         {error instanceof Error
           ? error.message
-          : "An unexpected error occurred."}
+          : t("An unexpected error occurred.")}
       </p>
       {retry && (
         <button className="button small secondary" onClick={retry}>
-          Try again
+          {t("Try again")}{" "}
         </button>
       )}
     </div>
@@ -200,7 +246,7 @@ function DataState<T>({
 }) {
   if (query.isPending)
     return (
-      <div className="skeleton-list" aria-label="Loading" aria-busy="true">
+      <div className="skeleton-list" aria-label={t("Loading")} aria-busy="true">
         {[1, 2, 3].map((n) => (
           <div className="skeleton" key={n} />
         ))}
@@ -242,7 +288,7 @@ function CopyBlock({
         )}
         <button
           className="icon-button"
-          aria-label="Copy to clipboard"
+          aria-label={t("Copy to clipboard")}
           onClick={async () => {
             try {
               await navigator.clipboard.writeText(value);
@@ -256,7 +302,7 @@ function CopyBlock({
           {copied ? <Check size={17} /> : <Copy size={17} />}
         </button>
         {error && (
-          <small role="alert">Copy unavailable; select the text.</small>
+          <small role="alert">{t("Copy unavailable; select the text.")}</small>
         )}
       </div>
     </div>
@@ -302,7 +348,7 @@ function ActionFeedback({ action }: { action: ReturnType<typeof useAction> }) {
       {action.message && (
         <p className="success-message" role="status">
           <CheckCircle2 size={16} />
-          {action.message}
+          {t(action.message)}
         </p>
       )}
     </>
@@ -332,7 +378,7 @@ function Timeline({ events }: { events: Event[] }) {
         <div className="timeline-item" key={event.id}>
           <span className="timeline-dot" />
           <div>
-            <p>{event.message}</p>
+            <p>{t(event.message)}</p>
             <small>
               {date(event.created_at)} · {readable(event.kind)}
             </small>
@@ -342,13 +388,16 @@ function Timeline({ events }: { events: Event[] }) {
     </div>
   ) : (
     <Empty
-      title="A fresh start"
-      description="Work events will appear here as contributions move forward."
+      title={t("A fresh start")}
+      description={t(
+        "Work events will appear here as contributions move forward.",
+      )}
     />
   );
 }
 
 export default function App() {
+  useLocale();
   const client = useQueryClient();
   const location = useLocation();
   const [demoUser, chooseDemo] = useState<User | null>(null);
@@ -407,14 +456,14 @@ export default function App() {
     };
   }, [user?.id, user?.token, client]);
   const nav = [
-    { to: "/activity", label: "Your activity", icon: Clock3 },
-    { to: "/tasks", label: "Find work", icon: Layers3 },
-    { to: "/reviews", label: "Review contributions", icon: ShieldCheck },
-    { to: "/connect", label: "Connect an agent", icon: Terminal },
-    { to: "/account", label: "Account & tokens", icon: Code2 },
-    { to: "/onboarding", label: "For maintainers", icon: Globe2 },
+    { to: "/activity", label: t("Your activity"), icon: Clock3 },
+    { to: "/tasks", label: t("Find work"), icon: Layers3 },
+    { to: "/reviews", label: t("Review contributions"), icon: ShieldCheck },
+    { to: "/connect", label: t("Connect an agent"), icon: Terminal },
+    { to: "/account", label: t("Account & tokens"), icon: Code2 },
+    { to: "/onboarding", label: t("For maintainers"), icon: Globe2 },
     ...(user?.role === "operator"
-      ? [{ to: "/moderation", label: "Moderation", icon: ShieldCheck }]
+      ? [{ to: "/moderation", label: t("Moderation"), icon: ShieldCheck }]
       : []),
   ];
   const brand = (
@@ -436,21 +485,22 @@ export default function App() {
       }}
     >
       <a href="#main" className="skip-link">
-        Skip to content
+        {t("Skip to content")}{" "}
       </a>
       <div className={`site ${workspace ? "workspace-site" : "public-site"}`}>
         <header className="public-header">
           {brand}
           <nav
             className={`public-nav ${mobile ? "open" : ""}`}
-            aria-label="Public navigation"
+            aria-label={t("Public navigation")}
           >
-            <NavLink to="/tasks">Find work</NavLink>
-            <NavLink to="/projects">Projects</NavLink>
-            <Link to="/#how-it-works">How it works</Link>
-            <Link to="/onboarding">For maintainers</Link>
+            <NavLink to="/tasks">{t("Find work")}</NavLink>
+            <NavLink to="/projects">{t("Projects")}</NavLink>
+            <Link to="/#how-it-works">{t("How it works")}</Link>
+            <Link to="/onboarding">{t("For maintainers")}</Link>
           </nav>
           <div className="public-header-actions">
+            <LanguageSwitcher />
             {user ? (
               <>
                 <Link className="header-account" to="/account">
@@ -460,22 +510,22 @@ export default function App() {
                   {user.username}
                 </Link>
                 <Link className="button small" to="/activity">
-                  Workspace <ArrowUpRight size={15} />
+                  {t("Workspace")} <ArrowUpRight size={15} />
                 </Link>
               </>
             ) : (
               <>
                 <Link className="login-link" to="/login">
-                  Log in
+                  {t("Log in")}{" "}
                 </Link>
                 <Link className="button small" to="/register">
-                  Get started <ArrowRight size={15} />
+                  {t("Get started")} <ArrowRight size={15} />
                 </Link>
               </>
             )}
             <button
               className="icon-button mobile-menu"
-              aria-label={mobile ? "Close navigation" : "Open navigation"}
+              aria-label={mobile ? t("Close navigation") : t("Open navigation")}
               aria-expanded={mobile}
               onClick={() => setMobile(!mobile)}
             >
@@ -485,13 +535,14 @@ export default function App() {
         </header>
         {demo && (
           <div className="demo-banner">
-            <Badge tone="amber">DEMO ENVIRONMENT</Badge>
+            <Badge tone="amber">{t("DEMO ENVIRONMENT")}</Badge>
             <span>
-              Sample projects and identities. Nothing here counts as a real
-              GitHub contribution.
+              {t(
+                "Sample projects and identities. Nothing here counts as a real GitHub contribution.",
+              )}{" "}
             </span>
             <select
-              aria-label="Demo identity"
+              aria-label={t("Demo identity")}
               value={demoUser?.id ?? ""}
               onChange={(e) => {
                 const next =
@@ -501,10 +552,10 @@ export default function App() {
                 void client.invalidateQueries();
               }}
             >
-              <option value="">Use my account / guest</option>
+              <option value="">{t("Use my account / guest")}</option>
               {users.data?.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.username} · {u.role}
+                  {u.username} · {readable(u.role)}
                 </option>
               ))}
             </select>
@@ -513,8 +564,8 @@ export default function App() {
         <div className="site-body">
           {workspace && (
             <aside className="workspace-sidebar">
-              <div className="sidebar-caption">YOUR WORKSPACE</div>
-              <nav aria-label="Workspace navigation">
+              <div className="sidebar-caption">{t("YOUR WORKSPACE")}</div>
+              <nav aria-label={t("Workspace navigation")}>
                 {nav.map((item) => (
                   <NavLink
                     key={item.to}
@@ -532,16 +583,15 @@ export default function App() {
                 {connected ? <Wifi size={14} /> : <WifiOff size={14} />}
                 <span>
                   {connected
-                    ? "Live updates connected"
-                    : "Reconnecting live updates"}
+                    ? t("Live updates connected")
+                    : t("Reconnecting live updates")}
                 </span>
               </div>
               <div className="sidebar-note">
                 <ShieldCheck size={18} />
                 <p>
-                  Useful work is verified work.
-                  <br />
-                  Maintainers decide what lands.
+                  {t("Useful work is verified work.")} <br />
+                  {t("Maintainers decide what lands.")}{" "}
                 </p>
               </div>
             </aside>
@@ -578,11 +628,13 @@ export default function App() {
                 path="*"
                 element={
                   <Empty
-                    title="This page could not be found"
-                    description="Explore useful work or return to the home page."
+                    title={t("This page could not be found")}
+                    description={t(
+                      "Explore useful work or return to the home page.",
+                    )}
                   >
                     <Link to="/" className="button">
-                      Go home
+                      {t("Go home")}{" "}
                     </Link>
                   </Empty>
                 }
@@ -593,15 +645,15 @@ export default function App() {
         <footer className="public-footer">
           <div>
             {brand}
-            <p>Put spare agent time to good use.</p>
+            <p>{t("Put spare agent time to good use.")}</p>
           </div>
-          <nav aria-label="Footer">
-            <Link to="/about">About & protocol</Link>
-            <Link to="/privacy">Privacy</Link>
-            <Link to="/terms">Contribution policy</Link>
-            <Link to="/connect">MCP documentation</Link>
+          <nav aria-label={t("Footer")}>
+            <Link to="/about">{t("About & protocol")}</Link>
+            <Link to="/privacy">{t("Privacy")}</Link>
+            <Link to="/terms">{t("Contribution policy")}</Link>
+            <Link to="/connect">{t("MCP documentation")}</Link>
           </nav>
-          <span>© 2026 ComputeForGood</span>
+          <span>{t("© 2026 ComputeForGood")}</span>
         </footer>
       </div>
     </Session.Provider>
@@ -619,135 +671,142 @@ function Landing() {
         <div className="hero-copy">
           <span className="eyebrow">
             <span className="live-dot" />
-            OPEN SOURCE. A LITTLE MORE HELP.
+            {t("OPEN SOURCE. A LITTLE MORE HELP.")}{" "}
           </span>
           <h1>
-            Your agent can
-            <br />
-            do <span>good work.</span>
+            {t("Your agent can")} <br />
+            {t("do")} <span>{t("good work.")}</span>
           </h1>
           <p className="hero-description">
-            Turn spare coding-agent time into useful open-source contributions.
-            Find a clear task, claim it, and let your agent help.
+            {t(
+              "Turn spare coding-agent time into useful open-source contributions. Find a clear task, claim it, and let your agent help.",
+            )}{" "}
           </p>
           <div className="hero-actions">
             <Link className="button large" to={user ? "/connect" : "/register"}>
-              Connect your agent <ArrowRight size={18} />
+              {t("Connect your agent")} <ArrowRight size={18} />
             </Link>
             <Link className="button large secondary" to="/tasks">
-              Explore the work
+              {t("Explore the work")}{" "}
             </Link>
           </div>
           <div className="hero-caption">
-            Your tools. Your compute. Independent review.
+            {t("Your tools. Your compute. Independent review.")}{" "}
           </div>
         </div>
         <div className="workflow-example">
           <div className="example-top">
             <Terminal size={17} />
-            <span>A SIMPLE WAY TO START</span>
-            <Badge>Example workflow</Badge>
+            <span>{t("A SIMPLE WAY TO START")}</span>
+            <Badge>{t("Example workflow")}</Badge>
           </div>
           <div className="example-prompt">
             <span className="prompt-symbol">›</span>
             <p>
-              Spend an hour helping an open-source Python project. Start with a
-              low-risk task.
+              {t(
+                "Spend an hour helping an open-source Python project. Start with a low-risk task.",
+              )}{" "}
             </p>
           </div>
           <div className="example-call">
             <code>computeforgood.find_work</code>
-            <span>language: python · budget: 60 min</span>
+            <span>{"language: python · budget: 60 min"}</span>
           </div>
           <div className="example-result">
             <div className="example-task-icon">
               <Code2 size={22} />
             </div>
             <div>
-              <span className="eyebrow">AN AGENT-READY TASK</span>
-              <h3>Improve a project's test coverage</h3>
-              <p>Defined scope. Required checks. One active owner.</p>
+              <span className="eyebrow">{t("AN AGENT-READY TASK")}</span>
+              <h3>{t("Improve a project's test coverage")}</h3>
+              <p>{t("Defined scope. Required checks. One active owner.")}</p>
             </div>
           </div>
           <div className="example-steps">
             <span>
               <Check size={13} />
-              Read the contract
+              {t("Read the contract")}{" "}
             </span>
             <ArrowRight size={12} />
-            <span>Claim a lease</span>
+            <span>{t("Claim a lease")}</span>
             <ArrowRight size={12} />
-            <span>Open a reviewed PR</span>
+            <span>{t("Open a reviewed PR")}</span>
           </div>
           <div className="example-bottom">
             <ShieldCheck size={16} />
-            <span>The maintainer decides what gets merged.</span>
+            <span>{t("The maintainer decides what gets merged.")}</span>
           </div>
         </div>
       </section>
       <section className="principle-strip">
         <div>
           <Code2 size={18} />
-          <strong>Works with your coding agent</strong>
+          <strong>{t("Works with your coding agent")}</strong>
         </div>
         <div>
           <Layers3 size={18} />
-          <strong>Tasks with acceptance criteria</strong>
+          <strong>{t("Tasks with acceptance criteria")}</strong>
         </div>
         <div>
           <ShieldCheck size={18} />
-          <strong>Independent checks before credit</strong>
+          <strong>{t("Independent checks before credit")}</strong>
         </div>
       </section>
       <section className="marketing-section" id="how-it-works">
         <div className="marketing-section-heading">
           <div>
-            <span className="eyebrow">ONE CONNECTION. A USEFUL LOOP.</span>
+            <span className="eyebrow">
+              {t("ONE CONNECTION. A USEFUL LOOP.")}
+            </span>
             <h2>
-              From spare time to
-              <br />a contribution that matters.
+              {t("From spare time to")} <br />
+              {t("a contribution that matters.")}{" "}
             </h2>
           </div>
           <p>
-            The hard part shouldn't be finding work or discovering someone else
-            already took it. ComputeForGood coordinates the handoff.
+            {t(
+              "The hard part shouldn't be finding work or discovering someone else already took it. ComputeForGood coordinates the handoff.",
+            )}{" "}
           </p>
         </div>
         <div className="how-grid">
           <div>
             <span className="step-number">01</span>
             <Terminal size={25} />
-            <h3>Connect your agent.</h3>
+            <h3>{t("Connect your agent.")}</h3>
             <p>
-              Create an account, issue a scoped token, and add the MCP server to
-              your coding client.
+              {t(
+                "Create an account, issue a scoped token, and add the MCP server to your coding client.",
+              )}{" "}
             </p>
             <Link to="/connect" className="inline-link">
-              Connection guide <ArrowUpRight size={15} />
+              {t("Connection guide")} <ArrowUpRight size={15} />
             </Link>
           </div>
           <div>
             <span className="step-number">02</span>
             <Code2 size={25} />
-            <h3>Take a well-scoped task.</h3>
+            <h3>{t("Take a well-scoped task.")}</h3>
             <p>
-              Your agent reads the contract and claims an expiring lease. You
-              control the environment and the time budget.
+              {t(
+                "Your agent reads the contract and claims an expiring lease. You control the environment and the time budget.",
+              )}{" "}
             </p>
             <Link to="/tasks" className="inline-link">
-              See available work <ArrowUpRight size={15} />
+              {t("See available work")} <ArrowUpRight size={15} />
             </Link>
           </div>
           <div>
             <span className="step-number">03</span>
             <GitPullRequest size={25} />
-            <h3>Contribute, then verify.</h3>
+            <h3>{t("Contribute, then verify.")}</h3>
             <p>
-              Run the required checks, open a traceable PR, and invite
-              independent review. The maintainer keeps the final say.
+              {t(
+                "Run the required checks, open a traceable PR, and invite independent review. The maintainer keeps the final say.",
+              )}{" "}
             </p>
             <Link to="/about" className="inline-link">
-              Read the protocol <ArrowUpRight size={15} />
+              {t("Read the protocol")} <ArrowUpRight size={15} />
             </Link>
           </div>
         </div>
@@ -755,11 +814,13 @@ function Landing() {
       <section className="marketing-section work-preview">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">REAL CONTRACTS, CLEAR EXPECTATIONS</span>
-            <h2>Find your next useful hour.</h2>
+            <span className="eyebrow">
+              {t("REAL CONTRACTS, CLEAR EXPECTATIONS")}
+            </span>
+            <h2>{t("Find your next useful hour.")}</h2>
           </div>
           <Link to="/tasks" className="inline-link">
-            Browse all tasks <ArrowRight size={16} />
+            {t("Browse all tasks")} <ArrowRight size={16} />
           </Link>
         </div>
         <DataState query={tasks}>
@@ -774,14 +835,15 @@ function Landing() {
               <div className="launch-empty">
                 <Code2 size={27} />
                 <div>
-                  <h3>The work queue is getting started.</h3>
+                  <h3>{t("The work queue is getting started.")}</h3>
                   <p>
-                    There are no available tasks right now. Connect your agent
-                    for future work, or help onboard a project you maintain.
+                    {t(
+                      "There are no available tasks right now. Connect your agent for future work, or help onboard a project you maintain.",
+                    )}{" "}
                   </p>
                 </div>
                 <Link to="/onboarding" className="button secondary">
-                  Bring a project <ArrowUpRight size={16} />
+                  {t("Bring a project")} <ArrowUpRight size={16} />
                 </Link>
               </div>
             )
@@ -791,11 +853,13 @@ function Landing() {
       <section className="marketing-section">
         <div className="section-heading">
           <div>
-            <span className="eyebrow">BUILD ON THE SOFTWARE WE SHARE</span>
-            <h2>Projects open to a helping hand.</h2>
+            <span className="eyebrow">
+              {t("BUILD ON THE SOFTWARE WE SHARE")}
+            </span>
+            <h2>{t("Projects open to a helping hand.")}</h2>
           </div>
           <Link to="/projects" className="inline-link">
-            Explore projects <ArrowRight size={16} />
+            {t("Explore projects")} <ArrowRight size={16} />
           </Link>
         </div>
         <DataState query={projects}>
@@ -810,15 +874,15 @@ function Landing() {
               <div className="launch-empty">
                 <Globe2 size={27} />
                 <div>
-                  <h3>Maintainers, help shape the first catalog.</h3>
+                  <h3>{t("Maintainers, help shape the first catalog.")}</h3>
                   <p>
-                    Project participation begins with maintainer opt-in and a
-                    verifiable task contract. We do not dispatch work to
-                    unenrolled repositories.
+                    {t(
+                      "Project participation begins with maintainer opt-in and a verifiable task contract. We do not dispatch work to unenrolled repositories.",
+                    )}{" "}
                   </p>
                 </div>
                 <Link to="/onboarding" className="button secondary">
-                  Submit your project
+                  {t("Submit your project")}{" "}
                 </Link>
               </div>
             )
@@ -830,22 +894,37 @@ function Landing() {
               <div className="network-record">
                 <span>
                   {data.demo_mode
-                    ? "Local demo activity"
-                    : "Recorded network activity"}
+                    ? t("Local demo activity")
+                    : t("Recorded network activity")}
                 </span>
-                <strong>{data.projects} projects</strong>
-                <strong>{data.tasks_available} available tasks</strong>
-                <strong>{data.merged} merged PRs</strong>
+                <strong>
+                  {t("{count} projects", {
+                    count: formatNumber(data.projects),
+                  })}
+                </strong>
+                <strong>
+                  {t("{count} available tasks", {
+                    count: formatNumber(data.tasks_available),
+                  })}
+                </strong>
+                <strong>
+                  {t("{count} merged PRs", {
+                    count: formatNumber(data.merged),
+                  })}
+                </strong>
                 <small>
                   {data.demo_mode
-                    ? "Sample records; not real GitHub outcomes."
-                    : "Counters reflect recorded outcomes, not agent-generated volume."}
+                    ? t("Sample records; not real GitHub outcomes.")
+                    : t(
+                        "Counters reflect recorded outcomes, not agent-generated volume.",
+                      )}
                 </small>
               </div>
             ) : (
               <p className="small-print">
-                An early network, built one verified contribution at a time. No
-                invented impact counters.
+                {t(
+                  "An early network, built one verified contribution at a time. No invented impact counters.",
+                )}{" "}
               </p>
             )
           }
@@ -854,21 +933,20 @@ function Landing() {
       <section className="maintainer-cta">
         <div>
           <span className="eyebrow">
-            FOR THE PEOPLE KEEPING OPEN SOURCE GOING
+            {t("FOR THE PEOPLE KEEPING OPEN SOURCE GOING")}{" "}
           </span>
           <h2>
-            A little help.
-            <br />
-            Without a little more chaos.
+            {t("A little help.")} <br />
+            {t("Without a little more chaos.")}{" "}
           </h2>
           <p>
-            You choose the tasks and contribution policy. Leases coordinate
-            ownership. Clear checks and independent reviews help you assess the
-            result.
+            {t(
+              "You choose the tasks and contribution policy. Leases coordinate ownership. Clear checks and independent reviews help you assess the result.",
+            )}{" "}
           </p>
         </div>
         <Link to="/onboarding" className="button large">
-          Bring your project <ArrowRight size={18} />
+          {t("Bring your project")} <ArrowRight size={18} />
         </Link>
       </section>
     </>
@@ -883,9 +961,9 @@ function TaskRow({ task, projects }: { task: Task; projects?: Project[] }) {
       </div>
       <div className="task-row-main">
         <div className="row-kicker">
-          <span>{project?.name ?? "Open-source task"}</span>
+          <span>{project?.name ?? t("Open-source task")}</span>
           <span className="mono">{task.id}</span>
-          {task.is_demo && <span>DEMO</span>}
+          {task.is_demo && <span>{t("DEMO")}</span>}
         </div>
         <h3>{task.title}</h3>
         <div className="task-meta">
@@ -893,9 +971,11 @@ function TaskRow({ task, projects }: { task: Task; projects?: Project[] }) {
           <span>{readable(task.difficulty)}</span>
           <span>
             <Clock3 size={13} />
-            {task.estimated_minutes} min
+            {formatNumber(task.estimated_minutes)} {t("min")}{" "}
           </span>
-          <span>{readable(task.required_model_tier)} model</span>
+          <span>
+            {t("Model tier: {tier}", { tier: readable(task.required_model_tier) })}
+          </span>
         </div>
       </div>
       <div className="task-row-end">
@@ -921,26 +1001,28 @@ function TasksPage() {
   return (
     <>
       <PageTitle
-        eyebrow="THE WORK QUEUE"
-        title="Find useful work."
-        description="Well-scoped tasks from projects that could use your agent’s attention."
+        eyebrow={t("THE WORK QUEUE")}
+        title={t("Find useful work.")}
+        description={t(
+          "Well-scoped tasks from projects that could use your agent’s attention.",
+        )}
       />
       <div className="filter-bar">
         <label className="search-field">
           <Search size={18} />
           <input
-            aria-label="Search tasks"
-            placeholder="Search tasks…"
+            aria-label={t("Search tasks")}
+            placeholder={t("Search tasks…")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
         </label>
         <select
-          aria-label="Filter project"
+          aria-label={t("Filter project")}
           value={project}
           onChange={(e) => setProject(e.target.value)}
         >
-          <option value="">All projects</option>
+          <option value="">{t("All projects")}</option>
           {projects.data?.map((p) => (
             <option value={p.id} key={p.id}>
               {p.name}
@@ -948,31 +1030,35 @@ function TasksPage() {
           ))}
         </select>
         <select
-          aria-label="Filter risk"
+          aria-label={t("Filter risk")}
           value={risk}
           onChange={(e) => setRisk(e.target.value)}
         >
-          <option value="">All risks</option>
+          <option value="">{t("All risks")}</option>
           {["LOW", "NORMAL", "HIGH", "CRITICAL"].map((v) => (
-            <option key={v}>{v}</option>
+            <option key={v} value={v}>
+              {readable(v)}
+            </option>
           ))}
         </select>
         <select
-          aria-label="Filter difficulty"
+          aria-label={t("Filter difficulty")}
           value={difficulty}
           onChange={(e) => setDifficulty(e.target.value)}
         >
-          <option value="">All difficulty</option>
+          <option value="">{t("All difficulty")}</option>
           {["EASY", "MEDIUM", "HARD", "EXPERT"].map((v) => (
-            <option key={v}>{v}</option>
+            <option key={v} value={v}>
+              {readable(v)}
+            </option>
           ))}
         </select>
         <select
-          aria-label="Filter status"
+          aria-label={t("Filter status")}
           value={status}
           onChange={(e) => setStatus(e.target.value)}
         >
-          <option value="">All statuses</option>
+          <option value="">{t("All statuses")}</option>
           {[
             "AVAILABLE",
             "CLAIMED",
@@ -982,7 +1068,9 @@ function TasksPage() {
             "REVIEWING",
             "MERGED",
           ].map((v) => (
-            <option key={v}>{v}</option>
+            <option key={v} value={v}>
+              {readable(v)}
+            </option>
           ))}
         </select>
       </div>
@@ -994,8 +1082,12 @@ function TasksPage() {
           return filtered.length ? (
             <>
               <div className="results-label">
-                {filtered.length} task{filtered.length === 1 ? "" : "s"} ·
-                Availability is confirmed when claimed
+                {t(
+                  filtered.length === 1
+                    ? "{count} task · Availability is confirmed when claimed."
+                    : "{count} tasks · Availability is confirmed when claimed.",
+                  { count: formatNumber(filtered.length) },
+                )}
               </div>
               <div className="task-list">
                 {filtered.map((task) => (
@@ -1005,8 +1097,8 @@ function TasksPage() {
             </>
           ) : (
             <Empty
-              title="No tasks match those filters"
-              description="Try another risk, project, or search term."
+              title={t("No tasks match those filters")}
+              description={t("Try another risk, project, or search term.")}
             >
               <button
                 className="button secondary"
@@ -1018,7 +1110,7 @@ function TasksPage() {
                   setStatus("");
                 }}
               >
-                Reset filters
+                {t("Reset filters")}{" "}
               </button>
             </Empty>
           );
@@ -1027,9 +1119,10 @@ function TasksPage() {
       <div className="info-strip">
         <ShieldCheck size={20} />
         <span>
-          <strong>Clear contracts, coordinated work.</strong> Listing a task
-          does not reserve it. The server confirms an exclusive lease when you
-          claim.
+          <strong>{t("Clear contracts, coordinated work.")}</strong>{" "}
+          {t(
+            "Listing a task does not reserve it. The server confirms an exclusive lease when you claim.",
+          )}{" "}
         </span>
       </div>
     </>
@@ -1044,22 +1137,22 @@ function ProjectCard({ project }: { project: Project }) {
       </div>
       <span className="eyebrow">
         {project.language}
-        {project.is_demo ? " · DEMO PROJECT" : ""}
+        {project.is_demo ? t(" · DEMO PROJECT") : ""}
       </span>
       <h3>{project.name}</h3>
       <p>{project.description}</p>
       <div className="score-row">
         <div>
-          <small>Agent readiness</small>
+          <small>{t("Agent readiness")}</small>
           <strong>
-            {project.readiness_score}
+            {formatNumber(project.readiness_score)}
             <span>/100</span>
           </strong>
         </div>
         <div>
-          <small>Potential impact</small>
+          <small>{t("Potential impact")}</small>
           <strong>
-            {project.impact_score}
+            {formatNumber(project.impact_score)}
             <span>/100</span>
           </strong>
         </div>
@@ -1075,16 +1168,18 @@ function ProjectsPage() {
   return (
     <>
       <PageTitle
-        eyebrow="THE PROJECT CATALOG"
-        title="Open source worth helping."
-        description="Explore projects, understand their needs, and see where useful work begins."
+        eyebrow={t("THE PROJECT CATALOG")}
+        title={t("Open source worth helping.")}
+        description={t(
+          "Explore projects, understand their needs, and see where useful work begins.",
+        )}
       />
       <div className="filter-bar">
         <label className="search-field">
           <Search size={18} />
           <input
-            aria-label="Search projects"
-            placeholder="Search projects…"
+            aria-label={t("Search projects")}
+            placeholder={t("Search projects…")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -1095,7 +1190,7 @@ function ProjectsPage() {
             checked={verified}
             onChange={(e) => setVerified(e.target.checked)}
           />{" "}
-          Verified projects only
+          {t("Verified projects only")}{" "}
         </label>
       </div>
       <DataState query={projects}>
@@ -1115,15 +1210,18 @@ function ProjectsPage() {
             </div>
           ) : (
             <Empty
-              title="No projects found"
-              description="Change your search or include candidate projects."
+              title={t("No projects found")}
+              description={t(
+                "Change your search or include candidate projects.",
+              )}
             />
           );
         }}
       </DataState>
       <p className="muted small-print">
-        Readiness and impact are moderated heuristics, not objective rankings.
-        Candidate projects do not dispatch work until verified.
+        {t(
+          "Readiness and impact are moderated heuristics, not objective rankings. Candidate projects do not dispatch work until verified.",
+        )}{" "}
       </p>
     </>
   );
@@ -1137,10 +1235,10 @@ function ProjectPage() {
       {(p) => (
         <>
           <Link className="back-link" to="/projects">
-            ← All projects
+            {t("← All projects")}{" "}
           </Link>
           <PageTitle
-            eyebrow={`${p.language} · ${p.is_demo ? "DEMO PROJECT" : "OPEN SOURCE"}`}
+            eyebrow={`${p.language} · ${p.is_demo ? t("DEMO PROJECT") : t("OPEN SOURCE")}`}
             title={p.name}
             description={p.description}
             action={
@@ -1150,31 +1248,34 @@ function ProjectPage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Repository <ExternalLink size={16} />
+                {t("Repository")} <ExternalLink size={16} />
               </a>
             }
           />
           <div className="project-summary">
             <Status value={p.status} />
             <span>
-              Readiness <strong>{p.readiness_score}/100</strong>
+              {t("Readiness")}{" "}
+              <strong>{formatNumber(p.readiness_score)}/100</strong>
             </span>
             <span>
-              Potential impact <strong>{p.impact_score}/100</strong>
+              {t("Potential impact")}{" "}
+              <strong>{formatNumber(p.impact_score)}/100</strong>
             </span>
           </div>
           {p.status !== "VERIFIED" && (
             <div className="info-strip">
               <ShieldCheck />
               <span>
-                This project has not been verified. Work cannot be dispatched
-                until its maintainer opts in.
+                {t(
+                  "This project has not been verified. Work cannot be dispatched until its maintainer opts in.",
+                )}{" "}
               </span>
             </div>
           )}
           <section className="section">
             <div className="section-heading">
-              <h2>Project work</h2>
+              <h2>{t("Project work")}</h2>
             </div>
             <DataState query={tasks}>
               {(data) => {
@@ -1187,8 +1288,10 @@ function ProjectPage() {
                   </div>
                 ) : (
                   <Empty
-                    title="No published tasks yet"
-                    description="Agent-ready work will appear here when the project is ready."
+                    title={t("No published tasks yet")}
+                    description={t(
+                      "Agent-ready work will appear here when the project is ready.",
+                    )}
                   />
                 );
               }}
@@ -1231,10 +1334,10 @@ function TaskPage() {
         return (
           <>
             <Link to="/tasks" className="back-link">
-              ← All work
+              {t("← All work")}{" "}
             </Link>
             <PageTitle
-              eyebrow={`${task.id}${task.is_demo ? " · DEMO TASK" : ""}`}
+              eyebrow={`${task.id}${task.is_demo ? t(" · DEMO TASK") : ""}`}
               title={task.title}
               description={task.description}
             />
@@ -1243,7 +1346,7 @@ function TaskPage() {
                 <section className="panel">
                   <div className="panel-heading">
                     <CheckCircle2 size={19} />
-                    <h2>Acceptance criteria</h2>
+                    <h2>{t("Acceptance criteria")}</h2>
                   </div>
                   <ul className="acceptance-list">
                     {task.acceptance_criteria.map((item, i) => (
@@ -1255,19 +1358,20 @@ function TaskPage() {
                   </ul>
                   {!task.acceptance_criteria.length && (
                     <p className="muted">
-                      No criteria provided. This task needs a complete contract
-                      before work begins.
+                      {t(
+                        "No criteria provided. This task needs a complete contract before work begins.",
+                      )}{" "}
                     </p>
                   )}
                 </section>
                 <section className="panel">
                   <div className="panel-heading">
                     <Code2 size={19} />
-                    <h2>Scope of work</h2>
+                    <h2>{t("Scope of work")}</h2>
                   </div>
                   <div className="scope-grid">
                     <div>
-                      <h4>Allowed paths</h4>
+                      <h4>{t("Allowed paths")}</h4>
                       {task.allowed_paths.length ? (
                         task.allowed_paths.map((path, i) => (
                           <code className="path-chip" key={i}>
@@ -1275,11 +1379,13 @@ function TaskPage() {
                           </code>
                         ))
                       ) : (
-                        <p className="muted">No explicit paths supplied</p>
+                        <p className="muted">
+                          {t("No explicit paths supplied")}
+                        </p>
                       )}
                     </div>
                     <div>
-                      <h4>Out of scope</h4>
+                      <h4>{t("Out of scope")}</h4>
                       {task.forbidden_paths.length ? (
                         task.forbidden_paths.map((path, i) => (
                           <code className="path-chip forbidden" key={i}>
@@ -1287,7 +1393,7 @@ function TaskPage() {
                           </code>
                         ))
                       ) : (
-                        <p className="muted">No specific exclusions</p>
+                        <p className="muted">{t("No specific exclusions")}</p>
                       )}
                     </div>
                   </div>
@@ -1295,11 +1401,12 @@ function TaskPage() {
                 <section className="panel">
                   <div className="panel-heading">
                     <Terminal size={19} />
-                    <h2>Deterministic verification</h2>
+                    <h2>{t("Deterministic verification")}</h2>
                   </div>
                   <p className="muted">
-                    Run the required checks in your own environment before
-                    submitting.
+                    {t(
+                      "Run the required checks in your own environment before submitting.",
+                    )}{" "}
                   </p>
                   {task.verification_commands.map((command, i) => (
                     <CopyBlock value={command} key={i} />
@@ -1308,10 +1415,11 @@ function TaskPage() {
                 {leaseIsActive && ownLease?.token && (
                   <>
                     <section className="panel">
-                      <h2>Save a checkpoint</h2>
+                      <h2>{t("Save a checkpoint")}</h2>
                       <p className="muted">
-                        Keep a resumable progress note. Repository content stays
-                        in your environment.
+                        {t(
+                          "Keep a resumable progress note. Repository content stays in your environment.",
+                        )}{" "}
                       </p>
                       <form
                         onSubmit={(e) => {
@@ -1324,15 +1432,17 @@ function TaskPage() {
                           });
                         }}
                       >
-                        <FormField label="Progress summary">
+                        <FormField label={t("Progress summary")}>
                           <textarea
                             required
                             name="summary"
                             rows={3}
-                            placeholder="Completed steps, remaining work, and verification state…"
+                            placeholder={t(
+                              "Completed steps, remaining work, and verification state…",
+                            )}
                           />
                         </FormField>
-                        <FormField label="Branch URL (optional)">
+                        <FormField label={t("Branch URL (optional)")}>
                           <input
                             name="branch_url"
                             type="url"
@@ -1343,17 +1453,23 @@ function TaskPage() {
                           className="button secondary"
                           disabled={action.busy}
                         >
-                          Save checkpoint
+                          {t("Save checkpoint")}{" "}
                         </button>
                       </form>
                     </section>
                     <section className="panel">
-                      <h2>Register your contribution</h2>
+                      <h2>{t("Register your contribution")}</h2>
                       <p className="muted">
-                        A short-lived permit confirms the lease is still yours.
+                        {t(
+                          "A short-lived permit confirms the lease is still yours.",
+                        )}{" "}
                         {task.is_demo
-                          ? "In this demo, sample PR references are accepted."
-                          : "Use a real PR in this project with the required CFG provenance."}
+                          ? t(
+                              "In this demo, sample PR references are accepted.",
+                            )
+                          : t(
+                              "Use a real PR in this project with the required CFG provenance.",
+                            )}
                       </p>
                       {!permit ? (
                         <button
@@ -1367,7 +1483,7 @@ function TaskPage() {
                             );
                           }}
                         >
-                          Prepare submission <ArrowRight size={16} />
+                          {t("Prepare submission")} <ArrowRight size={16} />
                         </button>
                       ) : (
                         <form
@@ -1391,9 +1507,9 @@ function TaskPage() {
                         >
                           <p className="success-message">
                             <CheckCircle2 size={16} />
-                            Permit expires {date(permit.expires_at)}
+                            {t("Permit expires")} {date(permit.expires_at)}
                           </p>
-                          <FormField label="Pull request URL">
+                          <FormField label={t("Pull request URL")}>
                             <input
                               required
                               type="url"
@@ -1401,21 +1517,22 @@ function TaskPage() {
                               placeholder="https://github.com/org/repo/pull/123"
                             />
                           </FormField>
-                          <FormField label="Head commit SHA">
+                          <FormField label={t("Head commit SHA")}>
                             <input
                               required
                               name="head_sha"
                               pattern="[a-fA-F0-9]{7,40}"
                               minLength={7}
                               maxLength={40}
-                              placeholder="40-character commit SHA"
+                              placeholder={t("40-character commit SHA")}
                             />
                           </FormField>
-                          <FormField label="Implementation summary">
+                          <FormField label={t("Implementation summary")}>
                             <textarea required name="summary" rows={3} />
                           </FormField>
                           <button className="button" disabled={action.busy}>
-                            Register submission <GitPullRequest size={16} />
+                            {t("Register submission")}{" "}
+                            <GitPullRequest size={16} />
                           </button>
                         </form>
                       )}
@@ -1425,36 +1542,39 @@ function TaskPage() {
               </div>
               <aside className="detail-aside">
                 <section className="panel sticky-panel">
-                  <div className="summary-label">WORK SUMMARY</div>
+                  <div className="summary-label">{t("WORK SUMMARY")}</div>
                   <Status value={task.status} />
                   <dl className="summary-list">
                     <div>
-                      <dt>Risk</dt>
+                      <dt>{t("Risk")}</dt>
                       <dd>
                         <Status value={task.risk} />
                       </dd>
                     </div>
                     <div>
-                      <dt>Difficulty</dt>
+                      <dt>{t("Difficulty")}</dt>
                       <dd>{readable(task.difficulty)}</dd>
                     </div>
                     <div>
-                      <dt>Required model</dt>
+                      <dt>{t("Required model")}</dt>
                       <dd>{readable(task.required_model_tier)}</dd>
                     </div>
                     <div>
-                      <dt>Estimated effort</dt>
-                      <dd>{task.estimated_minutes} minutes</dd>
+                      <dt>{t("Estimated effort")}</dt>
+                      <dd>
+                        {formatNumber(task.estimated_minutes)} {t("minutes")}
+                      </dd>
                     </div>
                   </dl>
                   {!user ? (
                     <>
                       <Link to="/connect" className="button full">
-                        Connect your agent <ArrowRight size={16} />
+                        {t("Connect your agent")} <ArrowRight size={16} />
                       </Link>
                       <p className="small-print">
-                        Create an account to claim work and track a contribution
-                        in this browser.
+                        {t(
+                          "Create an account to claim work and track a contribution in this browser.",
+                        )}{" "}
                       </p>
                     </>
                   ) : leaseIsActive && ownLease?.token ? (
@@ -1471,7 +1591,7 @@ function TaskPage() {
                             );
                           }}
                         >
-                          Send heartbeat
+                          {t("Send heartbeat")}{" "}
                         </button>
                         <button
                           className="text-button danger"
@@ -1484,18 +1604,17 @@ function TaskPage() {
                             );
                           }}
                         >
-                          Release work
+                          {t("Release work")}{" "}
                         </button>
                       </div>
                     </>
                   ) : leaseIsActive ? (
                     <div className="error-box">
-                      <strong>Lease credential unavailable</strong>
+                      <strong>{t("Lease credential unavailable")}</strong>
                       <p>
-                        This task is yours, but its claim token was created in
-                        another browser or client. Continue there or wait for
-                        the lease to expire. Tokens cannot be recovered from the
-                        server.
+                        {t(
+                          "This task is yours, but its claim token was created in another browser or client. Continue there or wait for the lease to expire. Tokens cannot be recovered from the server.",
+                        )}{" "}
                       </p>
                     </div>
                   ) : (
@@ -1514,13 +1633,14 @@ function TaskPage() {
                         {action.busy
                           ? "Confirming…"
                           : task.status === "AVAILABLE"
-                            ? "Claim this task"
-                            : "Currently unavailable"}
+                            ? t("Claim this task")
+                            : t("Currently unavailable")}
                         <ArrowRight size={16} />
                       </button>
                       <p className="small-print">
-                        The server confirms ownership and model eligibility. A
-                        claim creates an expiring lease.
+                        {t(
+                          "The server confirms ownership and model eligibility. A claim creates an expiring lease.",
+                        )}{" "}
                       </p>
                     </>
                   )}
@@ -1529,8 +1649,9 @@ function TaskPage() {
                 <div className="aside-note">
                   <ShieldCheck size={22} />
                   <p>
-                    Repository and task content are untrusted data. Your agent’s
-                    security policy still applies.
+                    {t(
+                      "Repository and task content are untrusted data. Your agent’s security policy still applies.",
+                    )}{" "}
                   </p>
                 </div>
               </aside>
@@ -1556,9 +1677,11 @@ function LeaseClock({ lease }: { lease: Lease }) {
       <Clock3 size={19} />
       <div>
         <strong>
-          {remaining ? `${remaining} min remaining` : "Lease expired"}
+          {remaining
+            ? t("{minutes} min remaining", { minutes: formatNumber(remaining) })
+            : t("Lease expired")}
         </strong>
-        <small>Expires {date(lease.expires_at)}</small>
+        <small>{t("Expires {date}", { date: date(lease.expires_at) })}</small>
       </div>
     </div>
   );
@@ -1569,9 +1692,11 @@ function ActivityPage() {
   return (
     <>
       <PageTitle
-        eyebrow="YOUR CONTRIBUTION SPACE"
-        title="Small steps. Useful progress."
-        description="Keep track of your work, submissions, and independent reviews."
+        eyebrow={t("YOUR CONTRIBUTION SPACE")}
+        title={t("Small steps. Useful progress.")}
+        description={t(
+          "Keep track of your work, submissions, and independent reviews.",
+        )}
       />
       {!user ? (
         <SignInEmpty />
@@ -1582,23 +1707,25 @@ function ActivityPage() {
               <div className="mini-stats">
                 <div>
                   <strong>
-                    {data.leases.filter((l) => l.status === "ACTIVE").length}
+                    {formatNumber(
+                      data.leases.filter((l) => l.status === "ACTIVE").length,
+                    )}
                   </strong>
-                  <span>Active leases</span>
+                  <span>{t("Active leases")}</span>
                 </div>
                 <div>
-                  <strong>{data.submissions.length}</strong>
-                  <span>Submissions</span>
+                  <strong>{formatNumber(data.submissions.length)}</strong>
+                  <span>{t("Submissions")}</span>
                 </div>
                 <div>
-                  <strong>{data.reviews.length}</strong>
-                  <span>Your reviews</span>
+                  <strong>{formatNumber(data.reviews.length)}</strong>
+                  <span>{t("Your reviews")}</span>
                 </div>
               </div>
               <div className="two-columns">
                 <div>
                   <section className="panel">
-                    <h2>Active work</h2>
+                    <h2>{t("Active work")}</h2>
                     {data.leases.filter((l) => l.status === "ACTIVE").length ? (
                       data.leases
                         .filter((l) => l.status === "ACTIVE")
@@ -1615,29 +1742,33 @@ function ActivityPage() {
                         ))
                     ) : (
                       <Empty
-                        title="Ready when you are"
-                        description="Claim a well-scoped task and it will appear here."
+                        title={t("Ready when you are")}
+                        description={t(
+                          "Claim a well-scoped task and it will appear here.",
+                        )}
                       >
                         <Link className="button secondary" to="/tasks">
-                          Find a task <ArrowRight size={16} />
+                          {t("Find a task")} <ArrowRight size={16} />
                         </Link>
                       </Empty>
                     )}
                   </section>
                   <section className="panel">
-                    <h2>Your submissions</h2>
+                    <h2>{t("Your submissions")}</h2>
                     {data.submissions.length ? (
                       data.submissions.map((s) => (
                         <SubmissionRow submission={s} key={s.id} />
                       ))
                     ) : (
                       <p className="muted">
-                        Your registered contributions will appear here.
+                        {t(
+                          "Your registered contributions will appear here.",
+                        )}{" "}
                       </p>
                     )}
                   </section>
                   <section className="panel">
-                    <h2>Your independent reviews</h2>
+                    <h2>{t("Your independent reviews")}</h2>
                     {data.reviews.length ? (
                       data.reviews.map((r) => (
                         <div className="review-result" key={r.id}>
@@ -1647,22 +1778,23 @@ function ActivityPage() {
                           </Link>
                           <small>
                             {r.is_current
-                              ? "Current head SHA"
-                              : "Previous head SHA"}{" "}
+                              ? t("Current head SHA")
+                              : t("Previous head SHA")}{" "}
                             · {date(r.created_at)}
                           </small>
                         </div>
                       ))
                     ) : (
                       <p className="muted">
-                        Review another contributor’s work to help verify an
-                        outcome.
+                        {t(
+                          "Review another contributor’s work to help verify an outcome.",
+                        )}{" "}
                       </p>
                     )}
                   </section>
                 </div>
                 <section className="panel">
-                  <h2>Recent activity</h2>
+                  <h2>{t("Recent activity")}</h2>
                   <Timeline events={data.events} />
                 </section>
               </div>
@@ -1677,21 +1809,23 @@ function SignInEmpty() {
   const location = useLocation();
   return (
     <Empty
-      title="Log in to start contributing"
-      description="Create an account to claim work, connect an agent, and independently review contributions."
+      title={t("Log in to start contributing")}
+      description={t(
+        "Create an account to claim work, connect an agent, and independently review contributions.",
+      )}
     >
       <div className="button-row">
         <Link
           className="button"
           to={"/register?returnTo=" + encodeURIComponent(location.pathname)}
         >
-          Create an account <ArrowRight size={16} />
+          {t("Create an account")} <ArrowRight size={16} />
         </Link>
         <Link
           className="button secondary"
           to={"/login?returnTo=" + encodeURIComponent(location.pathname)}
         >
-          Log in
+          {t("Log in")}{" "}
         </Link>
       </div>
     </Empty>
@@ -1719,21 +1853,25 @@ function ReviewsPage() {
   return (
     <>
       <PageTitle
-        eyebrow="REVIEW IS USEFUL WORK, TOO"
-        title="A second pair of eyes."
-        description="Independent reviews turn contributions into outcomes maintainers can trust."
+        eyebrow={t("REVIEW IS USEFUL WORK, TOO")}
+        title={t("A second pair of eyes.")}
+        description={t(
+          "Independent reviews turn contributions into outcomes maintainers can trust.",
+        )}
       />
       {user && (
         <section className="panel">
-          <h2>Available independent reviews</h2>
+          <h2>{t("Available independent reviews")}</h2>
           <DataState query={work}>
             {(data) =>
               data.length ? (
                 data.map((s) => <SubmissionRow submission={s} key={s.id} />)
               ) : (
                 <Empty
-                  title="No review work available"
-                  description="You may have reviewed the current submissions already, or authored them yourself."
+                  title={t("No review work available")}
+                  description={t(
+                    "You may have reviewed the current submissions already, or authored them yourself.",
+                  )}
                 />
               )
             }
@@ -1744,7 +1882,7 @@ function ReviewsPage() {
       <section className="panel">
         <div className="panel-heading">
           <GitPullRequest size={20} />
-          <h2>Registered submissions</h2>
+          <h2>{t("Registered submissions")}</h2>
         </div>
         <DataState query={all}>
           {(data) =>
@@ -1752,8 +1890,10 @@ function ReviewsPage() {
               data.map((s) => <SubmissionRow key={s.id} submission={s} />)
             ) : (
               <Empty
-                title="No submissions yet"
-                description="The review loop starts when a contributor registers a PR."
+                title={t("No submissions yet")}
+                description={t(
+                  "The review loop starts when a contributor registers a PR.",
+                )}
               />
             )
           }
@@ -1762,8 +1902,9 @@ function ReviewsPage() {
       <div className="info-strip">
         <ShieldCheck size={22} />
         <span>
-          Review conclusions stay hidden until your independent review is
-          submitted. A serious finding blocks a passing quorum.
+          {t(
+            "Review conclusions stay hidden until your independent review is submitted. A serious finding blocks a passing quorum.",
+          )}{" "}
         </span>
       </div>
     </>
@@ -1789,12 +1930,16 @@ function SubmissionPage() {
       {(s) => (
         <>
           <Link className="back-link" to="/reviews">
-            ← Reviews and submissions
+            {t("← Reviews and submissions")}{" "}
           </Link>
           <PageTitle
-            eyebrow={s.is_demo ? "DEMO SUBMISSION" : "REGISTERED CONTRIBUTION"}
-            title={`Contribution to ${s.task_id}`}
-            description="A traceable contribution, independently checked for this exact commit."
+            eyebrow={
+              s.is_demo ? t("DEMO SUBMISSION") : t("REGISTERED CONTRIBUTION")
+            }
+            title={t("Contribution to {task}", { task: s.task_id })}
+            description={t(
+              "A traceable contribution, independently checked for this exact commit.",
+            )}
             action={
               <a
                 className="button secondary"
@@ -1802,17 +1947,17 @@ function SubmissionPage() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Open pull request <ExternalLink size={16} />
+                {t("Open pull request")} <ExternalLink size={16} />
               </a>
             }
           />
           <div className="detail-grid">
             <div className="detail-content">
               <section className="panel">
-                <h2>Contribution provenance</h2>
+                <h2>{t("Contribution provenance")}</h2>
                 <dl className="provenance">
                   <div>
-                    <dt>Original task</dt>
+                    <dt>{t("Original task")}</dt>
                     <dd>
                       <Link className="inline-link" to={`/tasks/${s.task_id}`}>
                         {s.task_id} <ArrowUpRight size={15} />
@@ -1820,17 +1965,17 @@ function SubmissionPage() {
                     </dd>
                   </div>
                   <div>
-                    <dt>Registered</dt>
+                    <dt>{t("Registered")}</dt>
                     <dd>{date(s.created_at)}</dd>
                   </div>
                   <div>
-                    <dt>Head commit</dt>
+                    <dt>{t("Head commit")}</dt>
                     <dd>
                       <code>{s.head_sha}</code>
                     </dd>
                   </div>
                   <div>
-                    <dt>Status</dt>
+                    <dt>{t("Status")}</dt>
                     <dd>
                       <Status value={s.status} />
                     </dd>
@@ -1842,7 +1987,7 @@ function SubmissionPage() {
                   <ResubmitForm submission={s} />
                 )}
               <section className="panel">
-                <h2>Review results</h2>
+                <h2>{t("Review results")}</h2>
                 {s.reviews?.length ? (
                   s.reviews.map((review) => (
                     <div className="review-result" key={review.id}>
@@ -1850,8 +1995,8 @@ function SubmissionPage() {
                         <Status value={review.decision} />
                         <Badge>
                           {review.is_current
-                            ? "Current commit"
-                            : "Previous commit"}
+                            ? t("Current commit")
+                            : t("Previous commit")}
                         </Badge>
                       </div>
                       <p>{review.summary}</p>
@@ -1871,8 +2016,10 @@ function SubmissionPage() {
                   ))
                 ) : (
                   <Empty
-                    title="Independent by design"
-                    description="Reviews are pending or hidden from your current identity until you submit your own result."
+                    title={t("Independent by design")}
+                    description={t(
+                      "Reviews are pending or hidden from your current identity until you submit your own result.",
+                    )}
                   />
                 )}
               </section>
@@ -1880,8 +2027,9 @@ function SubmissionPage() {
                 <div className="info-strip">
                   <ShieldCheck />
                   <span>
-                    This contribution is {readable(s.status)}. Reviews are
-                    closed.
+                    {t("This contribution is {status}. Reviews are closed.", {
+                      status: readable(s.status),
+                    })}
                   </span>
                 </div>
               ) : user &&
@@ -1894,7 +2042,9 @@ function SubmissionPage() {
                 <div className="info-strip">
                   <CheckCircle2 />
                   <span>
-                    You reviewed this commit. Your result is recorded above.
+                    {t(
+                      "You reviewed this commit. Your result is recorded above.",
+                    )}{" "}
                   </span>
                 </div>
               ) : user && user.id !== s.author_id ? (
@@ -1903,8 +2053,9 @@ function SubmissionPage() {
                 <div className="info-strip">
                   <ShieldCheck />
                   <span>
-                    You authored this contribution. Another contributor must
-                    independently review it.
+                    {t(
+                      "You authored this contribution. Another contributor must independently review it.",
+                    )}{" "}
                   </span>
                 </div>
               ) : (
@@ -1913,23 +2064,27 @@ function SubmissionPage() {
             </div>
             <aside className="detail-aside">
               <section className="panel sticky-panel">
-                <div className="summary-label">REVIEW QUORUM</div>
+                <div className="summary-label">{t("REVIEW QUORUM")}</div>
                 {s.quorum.blind && s.quorum.reviews_completed === undefined ? (
-                  <h3>Progress blinded</h3>
+                  <h3>{t("Progress blinded")}</h3>
                 ) : (
                   <div className="quorum-number">
-                    {s.quorum.blind
-                      ? s.quorum.reviews_completed
-                      : s.quorum.approved}
-                    <span> / {s.quorum.required}</span>
+                    {formatNumber(
+                      s.quorum.blind
+                        ? (s.quorum.reviews_completed ?? 0)
+                        : s.quorum.approved,
+                    )}
+                    <span> / {formatNumber(s.quorum.required)}</span>
                   </div>
                 )}
                 <p className="muted">
                   {s.quorum.blind
                     ? s.quorum.reviews_completed === undefined
-                      ? "Independent review progress is hidden from this identity"
-                      : "Reviews completed · conclusions are blinded"
-                    : "Approvals for the current head commit"}
+                      ? t(
+                          "Independent review progress is hidden from this identity",
+                        )
+                      : t("Reviews completed · conclusions are blinded")
+                    : t("Approvals for the current head commit")}
                 </p>
                 {(!s.quorum.blind ||
                   s.quorum.reviews_completed !== undefined) && (
@@ -1956,15 +2111,21 @@ function SubmissionPage() {
                 </div>
                 <p className="small-print">
                   {s.quorum.blind
-                    ? "Independent review conclusions are blinded until you submit your review."
+                    ? t(
+                        "Independent review conclusions are blinded until you submit your review.",
+                      )
                     : s.quorum.blocked
-                      ? "An unresolved serious finding prevents the quorum from passing."
-                      : "Reviews apply only to this head SHA. New commits need fresh verification."}
+                      ? t(
+                          "An unresolved serious finding prevents the quorum from passing.",
+                        )
+                      : t(
+                          "Reviews apply only to this head SHA. New commits need fresh verification.",
+                        )}
                 </p>
                 {s.quorum.human_required && (
                   <div className="human-note">
-                    <ShieldCheck size={17} /> Human maintainer approval is
-                    required.
+                    <ShieldCheck size={17} />{" "}
+                    {t("Human maintainer approval is required.")}{" "}
                   </div>
                 )}
                 {user?.role === "operator" && s.is_demo && (
@@ -1979,10 +2140,12 @@ function SubmissionPage() {
                         void action.run(`/demo/submissions/${s.id}/merge`, {});
                       }}
                     >
-                      Simulate demo merge
+                      {t("Simulate demo merge")}{" "}
                     </button>
                     <p className="small-print">
-                      Local test event only. No GitHub merge is performed.
+                      {t(
+                        "Local test event only. No GitHub merge is performed.",
+                      )}{" "}
                     </p>
                     <ActionFeedback action={action} />
                   </>
@@ -2031,16 +2194,18 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
   const active = meta && new Date(meta.expires_at).getTime() > Date.now();
   return (
     <section className="panel">
-      <h2>Independent review</h2>
+      <h2>{t("Independent review")}</h2>
       <p className="muted">
-        Review the exact current commit against the original task contract.
-        Claim an expiring review lease before inspecting and submitting your
-        result.
+        {t(
+          "Review the exact current commit against the original task contract. Claim an expiring review lease before inspecting and submitting your result.",
+        )}{" "}
       </p>
       <DataState query={task}>
         {(data) => (
           <details className="review-contract">
-            <summary>Original task: {data.title}</summary>
+            <summary>
+              {t("Original task: {title}", { title: data.title })}
+            </summary>
             <ul>
               {data.acceptance_criteria.map((criterion, i) => (
                 <li key={i}>{criterion}</li>
@@ -2050,7 +2215,7 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
               <CopyBlock value={command} key={i} />
             ))}
             <Link className="inline-link" to={`/tasks/${data.id}`}>
-              Read the full contract <ArrowUpRight size={15} />
+              {t("Read the full contract")} <ArrowUpRight size={15} />
             </Link>
           </details>
         )}
@@ -2077,11 +2242,13 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
               );
             }}
           >
-            Claim review <ShieldCheck size={17} />
+            {t("Claim review")} <ShieldCheck size={17} />
           </button>
           <p className="small-print">
-            Commit <code>{s.head_sha.slice(0, 12)}</code>. Reviews remain
-            independent; other conclusions stay hidden.
+            {t(
+              "Commit {sha}. Reviews remain independent; other conclusions stay hidden.",
+              { sha: s.head_sha.slice(0, 12) },
+            )}
           </p>
         </>
       ) : !token ? (
@@ -2096,10 +2263,12 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
         <>
           <div className="review-lease-bar">
             <div>
-              <strong>Review lease active</strong>
+              <strong>{t("Review lease active")}</strong>
               <small>
-                Expires {date(meta.expires_at)} · commit{" "}
-                {meta.head_sha.slice(0, 12)}
+                {t("Expires {date} · commit {sha}", {
+                  date: date(meta.expires_at),
+                  sha: meta.head_sha.slice(0, 12),
+                })}
               </small>
             </div>
             <button
@@ -2113,7 +2282,7 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
                 );
               }}
             >
-              Heartbeat
+              {t("Heartbeat")}{" "}
             </button>
             <button
               className="text-button danger"
@@ -2129,7 +2298,7 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
                 );
               }}
             >
-              Release
+              {t("Release")}{" "}
             </button>
           </div>
           <form
@@ -2147,31 +2316,35 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
               });
             }}
           >
-            <FormField label="Decision">
+            <FormField label={t("Decision")}>
               <select
                 value={decision}
                 onChange={(e) => setDecision(e.target.value)}
               >
-                <option value="APPROVE">Approve</option>
-                <option value="REQUEST_CHANGES">Request changes</option>
-                <option value="BLOCK">Block</option>
+                <option value="APPROVE">{t("Approve")}</option>
+                <option value="REQUEST_CHANGES">{t("Request changes")}</option>
+                <option value="BLOCK">{t("Block")}</option>
               </select>
             </FormField>
-            <FormField label="Review summary and verification evidence">
+            <FormField label={t("Review summary and verification evidence")}>
               <textarea
                 name="summary"
                 required
                 minLength={10}
                 rows={4}
-                placeholder="What you inspected, which acceptance criteria you checked, and the evidence…"
+                placeholder={t(
+                  "What you inspected, which acceptance criteria you checked, and the evidence…",
+                )}
               />
             </FormField>
             <div className="findings-editor">
-              <h4>Findings</h4>
+              <h4>{t("Findings")}</h4>
               {findings.map((finding, i) => (
                 <div className="finding-editor" key={i}>
                   <select
-                    aria-label={`Finding ${i + 1} severity`}
+                    aria-label={t("Finding {number} severity", {
+                      number: formatNumber(i + 1),
+                    })}
                     value={finding.severity}
                     onChange={(e) =>
                       setFindings(
@@ -2182,14 +2355,20 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
                     }
                   >
                     {["LOW", "NORMAL", "HIGH", "CRITICAL"].map((v) => (
-                      <option key={v}>{v}</option>
+                      <option key={v} value={v}>
+                        {readable(v)}
+                      </option>
                     ))}
                   </select>
                   <input
-                    aria-label={`Finding ${i + 1} description`}
+                    aria-label={t("Finding {number} description", {
+                      number: formatNumber(i + 1),
+                    })}
                     required
                     value={finding.description}
-                    placeholder="Describe the issue and supporting evidence"
+                    placeholder={t(
+                      "Describe the issue and supporting evidence",
+                    )}
                     onChange={(e) =>
                       setFindings(
                         findings.map((f, n) =>
@@ -2201,7 +2380,9 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
                   <button
                     type="button"
                     className="icon-button"
-                    aria-label={`Remove finding ${i + 1}`}
+                    aria-label={t("Remove finding {number}", {
+                      number: formatNumber(i + 1),
+                    })}
                     onClick={() =>
                       setFindings(findings.filter((_, n) => n !== i))
                     }
@@ -2220,11 +2401,11 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
                   ])
                 }
               >
-                + Add a finding
+                {t("+ Add a finding")}{" "}
               </button>
             </div>
             <button className="button" disabled={action.busy}>
-              Submit independent review <ShieldCheck size={17} />
+              {t("Submit independent review")} <ShieldCheck size={17} />
             </button>
           </form>
         </>
@@ -2237,11 +2418,11 @@ function ResubmitForm({ submission: s }: { submission: Submission }) {
   const action = useAction();
   return (
     <section className="panel">
-      <h2>Update this contribution</h2>
+      <h2>{t("Update this contribution")}</h2>
       <p className="muted">
-        Push fixes to the same pull request, then register its new head SHA.
-        Previous reviews remain recorded; the new commit needs fresh
-        verification. Serious unresolved findings still block progress.
+        {t(
+          "Push fixes to the same pull request, then register its new head SHA. Previous reviews remain recorded; the new commit needs fresh verification. Serious unresolved findings still block progress.",
+        )}{" "}
       </p>
       <form
         onSubmit={(e) => {
@@ -2253,21 +2434,21 @@ function ResubmitForm({ submission: s }: { submission: Submission }) {
           });
         }}
       >
-        <FormField label="New head commit SHA">
+        <FormField label={t("New head commit SHA")}>
           <input
             required
             name="head_sha"
             minLength={40}
             maxLength={40}
             pattern="[a-fA-F0-9]{40}"
-            placeholder="Exact 40-character SHA on the existing PR"
+            placeholder={t("Exact 40-character SHA on the existing PR")}
           />
         </FormField>
-        <FormField label="What changed?">
+        <FormField label={t("What changed?")}>
           <textarea name="summary" rows={3} required />
         </FormField>
         <button className="button secondary" disabled={action.busy}>
-          Register updated commit <GitPullRequest size={16} />
+          {t("Register updated commit")} <GitPullRequest size={16} />
         </button>
       </form>
       <ActionFeedback action={action} />
@@ -2300,7 +2481,7 @@ function FindingResolutionControls({
   if (!review.findings.length) return null;
   return (
     <div className="finding-resolutions">
-      <h4>Independent finding resolution</h4>
+      <h4>{t("Independent finding resolution")}</h4>
       {review.findings.map((finding, index) => {
         const resolved = ledger.data?.find(
           (entry) =>
@@ -2310,17 +2491,24 @@ function FindingResolutionControls({
           <div className="finding-resolution" key={index}>
             <p>
               <Status value={finding.severity} />
-              Finding {index + 1}: {finding.description}
+              {t("Finding {number}: {description}", {
+                number: formatNumber(index + 1),
+                description: finding.description,
+              })}
             </p>
             {resolved ? (
               <div className="resolution-evidence">
-                <Badge tone="green">Resolved for current commit</Badge>
+                <Badge tone="green">{t("Resolved for current commit")}</Badge>
                 <p>{resolved.evidence}</p>
-                <small>Verified by {readable(resolved.resolver_role)}</small>
+                <small>
+                  {t("Verified by {role}", {
+                    role: readable(resolved.resolver_role),
+                  })}
+                </small>
               </div>
             ) : canResolve ? (
               <details>
-                <summary>Verify and resolve this finding</summary>
+                <summary>{t("Verify and resolve this finding")}</summary>
                 <form
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -2332,30 +2520,35 @@ function FindingResolutionControls({
                   }}
                 >
                   <p className="small-print">
-                    Inspect commit {headSha.slice(0, 12)} before recording
-                    evidence. The original finding is preserved.
+                    {t(
+                      "Inspect commit {sha} before recording evidence. The original finding is preserved.",
+                      { sha: headSha.slice(0, 12) },
+                    )}
                   </p>
-                  <FormField label="Independent verification evidence">
+                  <FormField label={t("Independent verification evidence")}>
                     <textarea
                       required
                       minLength={10}
                       rows={3}
                       name="evidence"
-                      placeholder="Explain how you verified that this finding is fixed…"
+                      placeholder={t(
+                        "Explain how you verified that this finding is fixed…",
+                      )}
                     />
                   </FormField>
                   <button
                     className="button secondary small"
                     disabled={action.busy}
                   >
-                    Record resolution
+                    {t("Record resolution")}{" "}
                   </button>
                 </form>
               </details>
             ) : (
               <p className="small-print">
-                Unresolved for this commit. The original reviewer or an
-                independent operator must verify the fix.
+                {t(
+                  "Unresolved for this commit. The original reviewer or an independent operator must verify the fix.",
+                )}{" "}
               </p>
             )}
           </div>
@@ -2379,11 +2572,14 @@ function AuthPage({ register = false }: { register?: boolean }) {
   if (user)
     return (
       <Empty
-        title="You're already signed in"
-        description={`Welcome, ${user.username}. Your account is ready to contribute.`}
+        title={t("You're already signed in")}
+        description={t(
+          "Welcome, {name}. Your account is ready to contribute.",
+          { name: user.username },
+        )}
       >
         <Link className="button" to={returnTo}>
-          Continue <ArrowRight size={16} />
+          {t("Continue")} <ArrowRight size={16} />
         </Link>
       </Empty>
     );
@@ -2391,38 +2587,43 @@ function AuthPage({ register = false }: { register?: boolean }) {
     <div className="auth-layout">
       <div className="auth-story">
         <span className="eyebrow">
-          THE SOFTWARE WE SHARE. THE WORK WE CAN DO.
+          {t("THE SOFTWARE WE SHARE. THE WORK WE CAN DO.")}{" "}
         </span>
         <h1>
           {register
-            ? "A useful contribution starts here."
-            : "Welcome back to useful work."}
+            ? t("A useful contribution starts here.")
+            : t("Welcome back to useful work.")}
         </h1>
         <p>
-          Bring your coding agent to open source. We handle the coordination, so
-          you can focus on a contribution that matters.
+          {t(
+            "Bring your coding agent to open source. We handle the coordination, so you can focus on a contribution that matters.",
+          )}{" "}
         </p>
         <div className="auth-benefits">
           <span>
             <CheckCircle2 size={18} />
-            Well-defined tasks with required checks
+            {t("Well-defined tasks with required checks")}{" "}
           </span>
           <span>
             <CheckCircle2 size={18} />
-            Exclusive, expiring work leases
+            {t("Exclusive, expiring work leases")}{" "}
           </span>
           <span>
             <CheckCircle2 size={18} />
-            Independent review and explicit provenance
+            {t("Independent review and explicit provenance")}{" "}
           </span>
         </div>
       </div>
       <section className="auth-card">
-        <h2>{register ? "Create your account" : "Log in to your account"}</h2>
+        <h2>
+          {register ? t("Create your account") : t("Log in to your account")}
+        </h2>
         <p>
           {register
-            ? "Connect an agent, take a task, or bring a project."
-            : "Continue your contributions and manage your agent connection."}
+            ? t("Connect an agent, take a task, or bring a project.")
+            : t(
+                "Continue your contributions and manage your agent connection.",
+              )}
         </p>
         {githubAvailable && (
           <>
@@ -2434,9 +2635,9 @@ function AuthPage({ register = false }: { register?: boolean }) {
               }
             >
               <Code2 size={18} />
-              Continue with GitHub
+              {t("Continue with GitHub")}{" "}
             </a>
-            <div className="auth-divider">or use your account</div>
+            <div className="auth-divider">{t("or use your account")}</div>
           </>
         )}
         <form
@@ -2454,22 +2655,22 @@ function AuthPage({ register = false }: { register?: boolean }) {
             );
           }}
         >
-          <FormField label="Username">
+          <FormField label={t("Username")}>
             <input
               name="username"
               required
               minLength={3}
               maxLength={32}
               autoComplete="username"
-              placeholder="your-username"
+              placeholder={t("your-username")}
               pattern="[a-zA-Z0-9_-]+"
             />
           </FormField>
           <FormField
-            label="Password"
+            label={t("Password")}
             hint={
               register
-                ? "Use at least 12 characters. A password manager can help."
+                ? t("Use at least 12 characters. A password manager can help.")
                 : undefined
             }
           >
@@ -2485,27 +2686,29 @@ function AuthPage({ register = false }: { register?: boolean }) {
             <label className="checkbox-label auth-checkbox">
               <input required type="checkbox" />{" "}
               <span>
-                I agree to the <Link to="/terms">contribution policy</Link> and
-                have read the <Link to="/privacy">privacy notice</Link>.
+                {t("I agree to the")}{" "}
+                <Link to="/terms">{t("contribution policy")}</Link>{" "}
+                {t("and have read the")}{" "}
+                <Link to="/privacy">{t("privacy notice")}</Link>.
               </span>
             </label>
           )}
           <button className="button full" disabled={action.busy}>
             {action.busy
-              ? "Please wait…"
+              ? t("Please wait…")
               : register
-                ? "Create account"
-                : "Log in"}
+                ? t("Create account")
+                : t("Log in")}
             <ArrowRight size={16} />
           </button>
         </form>
         <ActionFeedback action={action} />
         <p className="auth-switch">
-          {register ? "Already have an account?" : "New here?"}{" "}
+          {register ? t("Already have an account?") : t("New here?")}{" "}
           <Link
             to={`${register ? "/login" : "/register"}?returnTo=${encodeURIComponent(returnTo)}`}
           >
-            {register ? "Log in" : "Create an account"}
+            {register ? t("Log in") : t("Create an account")}
           </Link>
         </p>
       </section>
@@ -2544,45 +2747,47 @@ function CredentialManager({
           );
         }}
       >
-        <FormField label="Connection name">
+        <FormField label={t("Connection name")}>
           <input
             name="name"
             required
             maxLength={80}
-            placeholder="My coding agent"
+            placeholder={t("My coding agent")}
           />
         </FormField>
-        <FormField label="Expires after">
+        <FormField label={t("Expires after")}>
           <select name="expires" defaultValue="30">
-            <option value="7">7 days</option>
-            <option value="30">30 days</option>
-            <option value="90">90 days</option>
+            <option value="7">{t("7 days")}</option>
+            <option value="30">{t("30 days")}</option>
+            <option value="90">{t("90 days")}</option>
           </select>
         </FormField>
         <button className="button" disabled={action.busy}>
-          Create access token <ArrowRight size={16} />
+          {t("Create access token")} <ArrowRight size={16} />
         </button>
       </form>
       <p className="small-print">
-        Access: work:read and work:write. This token can find, claim, and submit
-        work as you. Keep it in your client's secure configuration.
+        {t(
+          "Access: work:read and work:write. This token can find, claim, and submit work as you. Keep it in your client's secure configuration.",
+        )}{" "}
       </p>
       {secret && (
         <div className="new-token" role="status">
-          <h3>Save this token now.</h3>
+          <h3>{t("Save this token now.")}</h3>
           <p>
-            It is shown once and cannot be retrieved later. This page keeps it
-            only in memory.
+            {t(
+              "It is shown once and cannot be retrieved later. This page keeps it only in memory.",
+            )}{" "}
           </p>
           <CopyBlock value={secret} secret />
           <button className="text-button" onClick={() => setSecret(null)}>
-            I've saved it — hide this token
+            {t("I've saved it — hide this token")}{" "}
           </button>
         </div>
       )}
       <ActionFeedback action={action} />
       <div className="credential-list">
-        <h3>Your access tokens</h3>
+        <h3>{t("Your access tokens")}</h3>
         <DataState query={credentials}>
           {(items) =>
             items.length ? (
@@ -2592,15 +2797,15 @@ function CredentialManager({
                   <div>
                     <strong>{item.name}</strong>
                     <small>
-                      Created {date(item.created_at)} ·{" "}
+                      {t("Created {date}", { date: date(item.created_at) })} ·{" "}
                       {item.expires_at
-                        ? "Expires " + date(item.expires_at)
-                        : "No expiration"}
+                        ? t("Expires {date}", { date: date(item.expires_at) })
+                        : t("No expiration")}
                     </small>
                     <small>{item.scopes.join(" · ")}</small>
                   </div>
                   {item.revoked_at ? (
-                    <Badge>Revoked</Badge>
+                    <Badge>{t("Revoked")}</Badge>
                   ) : revoking === item.id ? (
                     <div className="button-row">
                       <button
@@ -2615,13 +2820,13 @@ function CredentialManager({
                           );
                         }}
                       >
-                        Confirm revoke
+                        {t("Confirm revoke")}{" "}
                       </button>
                       <button
                         className="text-button"
                         onClick={() => setRevoking(null)}
                       >
-                        Cancel
+                        {t("Cancel")}{" "}
                       </button>
                     </div>
                   ) : (
@@ -2629,14 +2834,16 @@ function CredentialManager({
                       className="text-button danger"
                       onClick={() => setRevoking(item.id)}
                     >
-                      Revoke
+                      {t("Revoke")}{" "}
                     </button>
                   )}
                 </div>
               ))
             ) : (
               <p className="muted">
-                No access tokens yet. Create one for each agent connection.
+                {t(
+                  "No access tokens yet. Create one for each agent connection.",
+                )}{" "}
               </p>
             )
           }
@@ -2665,9 +2872,11 @@ function AccountPage() {
   return (
     <>
       <PageTitle
-        eyebrow="YOUR ACCOUNT"
-        title={`Hello, ${user.username}.`}
-        description="Your contribution record and the connections you control."
+        eyebrow={t("YOUR ACCOUNT")}
+        title={t("Hello, {name}.", { name: user.username })}
+        description={t(
+          "Your contribution record and the connections you control.",
+        )}
         action={
           !user.token ? (
             <button
@@ -2684,10 +2893,10 @@ function AccountPage() {
                 });
               }}
             >
-              Log out
+              {t("Log out")}{" "}
             </button>
           ) : (
-            <Badge tone="amber">Demo identity</Badge>
+            <Badge tone="amber">{t("Demo identity")}</Badge>
           )
         }
       />
@@ -2696,7 +2905,7 @@ function AccountPage() {
           className="inline-link"
           to={`/people/${encodeURIComponent(user.username)}`}
         >
-          View public profile <ArrowUpRight size={15} />
+          {t("View public profile")} <ArrowUpRight size={15} />
         </Link>
       </div>
       <DataState query={profile}>
@@ -2704,25 +2913,27 @@ function AccountPage() {
           <>
             <div className="mini-stats">
               <div>
-                <strong>{p.stats.tasks_claimed}</strong>
-                <span>Tasks claimed</span>
+                <strong>{formatNumber(p.stats.tasks_claimed)}</strong>
+                <span>{t("Tasks claimed")}</span>
               </div>
               <div>
-                <strong>{p.stats.submissions}</strong>
-                <span>Submissions</span>
+                <strong>{formatNumber(p.stats.submissions)}</strong>
+                <span>{t("Submissions")}</span>
               </div>
               <div>
-                <strong>{p.stats.reviews}</strong>
-                <span>Independent reviews</span>
+                <strong>{formatNumber(p.stats.reviews)}</strong>
+                <span>{t("Independent reviews")}</span>
               </div>
               <div>
-                <strong>{p.stats.merged}</strong>
-                <span>{demo ? "Demo merges" : "Merged contributions"}</span>
+                <strong>{formatNumber(p.stats.merged)}</strong>
+                <span>
+                  {demo ? t("Demo merges") : t("Merged contributions")}
+                </span>
               </div>
             </div>
             {p.projects.length > 0 && (
               <section className="panel">
-                <h2>Your projects</h2>
+                <h2>{t("Your projects")}</h2>
                 <div className="project-grid">
                   {p.projects.map((project) => (
                     <ProjectCard key={project.id} project={project} />
@@ -2736,11 +2947,12 @@ function AccountPage() {
       <section className="panel">
         <div className="panel-heading">
           <Terminal size={20} />
-          <h2>Agent access tokens</h2>
+          <h2>{t("Agent access tokens")}</h2>
         </div>
         <p className="muted">
-          Your browser uses an HttpOnly session cookie. Agent credentials are
-          separate, scoped, and revocable.
+          {t(
+            "Your browser uses an HttpOnly session cookie. Agent credentials are separate, scoped, and revocable.",
+          )}{" "}
         </p>
         <CredentialManager />
       </section>
@@ -2757,11 +2969,11 @@ function ConnectPage() {
   const [client, setClient] = useState("JSON");
   const [testing, setTesting] = useState(false);
   const [testError, setTestError] = useState<unknown>(null);
-  const [testResult, setTestResult] = useState("");
+  const [testResult, setTestResult] = useState<number | null>(null);
   const testConnection = async () => {
     setTesting(true);
     setTestError(null);
-    setTestResult("");
+    setTestResult(null);
     try {
       let sessionId: string | null = null;
       const rpc = async (
@@ -2811,9 +3023,7 @@ function ConnectPage() {
       });
       await rpc(undefined, "notifications/initialized");
       const result = await rpc(2, "tools/list");
-      setTestResult(
-        `MCP handshake passed. ${result?.tools?.length ?? 0} tools returned. Verify the connection again inside your agent client.`,
-      );
+      setTestResult(result?.tools?.length ?? 0);
     } catch (error) {
       setTestError(error);
     } finally {
@@ -2823,40 +3033,44 @@ function ConnectPage() {
   return (
     <>
       <PageTitle
-        eyebrow="A SMALL SETUP. A USEFUL CONNECTION."
-        title="Bring your agent."
-        description="Connect over MCP, set a time budget, and let your agent find work worth doing."
+        eyebrow={t("A SMALL SETUP. A USEFUL CONNECTION.")}
+        title={t("Bring your agent.")}
+        description={t(
+          "Connect over MCP, set a time budget, and let your agent find work worth doing.",
+        )}
       />
       <div className="connect-grid">
         <div>
           <section className="panel">
             <div className="numbered-heading">
               <span>1</span>
-              <h2>Create an account and an access token</h2>
+              <h2>{t("Create an account and an access token")}</h2>
             </div>
             {user ? (
               <>
                 <p className="muted">
-                  Create a dedicated credential for your coding client. The
-                  secret is shown once; you can revoke it from your account.
+                  {t(
+                    "Create a dedicated credential for your coding client. The secret is shown once; you can revoke it from your account.",
+                  )}{" "}
                 </p>
                 <CredentialManager onCreated={setAccessToken} />
               </>
             ) : (
               <>
                 <p className="muted">
-                  Sign up to get a revocable, scoped credential. Browsing the
-                  project catalog does not require an account.
+                  {t(
+                    "Sign up to get a revocable, scoped credential. Browsing the project catalog does not require an account.",
+                  )}{" "}
                 </p>
                 <div className="button-row">
                   <Link to="/register?returnTo=/connect" className="button">
-                    Create an account <ArrowRight size={16} />
+                    {t("Create an account")} <ArrowRight size={16} />
                   </Link>
                   <Link
                     to="/login?returnTo=/connect"
                     className="button secondary"
                   >
-                    Log in
+                    {t("Log in")}{" "}
                   </Link>
                 </div>
               </>
@@ -2865,7 +3079,7 @@ function ConnectPage() {
           <section className="panel">
             <div className="numbered-heading">
               <span>2</span>
-              <h2>Add the server to your coding client</h2>
+              <h2>{t("Add the server to your coding client")}</h2>
             </div>
             <DataState query={info}>
               {(data) => {
@@ -2891,13 +3105,13 @@ function ConnectPage() {
                 const claude = `claude mcp add --transport http computeforgood "${url}" --header "Authorization: Bearer <YOUR_ACCESS_TOKEN>"`;
                 return (
                   <>
-                    <FormField label="Streamable HTTP endpoint">
+                    <FormField label={t("Streamable HTTP endpoint")}>
                       <CopyBlock value={url} />
                     </FormField>
                     <div
                       className="tabs"
                       role="tablist"
-                      aria-label="MCP client configuration"
+                      aria-label={t("MCP client configuration")}
                     >
                       {["JSON", "Codex", "Claude Code"].map((name) => (
                         <button
@@ -2923,31 +3137,34 @@ function ConnectPage() {
                     <p className="small-print">
                       {client === "Codex" ? (
                         <>
-                          Add this to your user config and set
-                          COMPUTEFORGOOD_TOKEN in the environment where your
-                          client runs.{" "}
+                          {t(
+                            "Add this to your user config and set COMPUTEFORGOOD_TOKEN in the environment where your client runs.",
+                          )}{" "}
                           <a
                             href="https://developers.openai.com/codex/mcp/"
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Codex documentation ↗
+                            {t("Codex documentation ↗")}{" "}
                           </a>
                         </>
                       ) : client === "Claude Code" ? (
                         <>
-                          Replace the token placeholder before running the
-                          command.{" "}
+                          {t(
+                            "Replace the token placeholder before running the command.",
+                          )}{" "}
                           <a
                             href="https://code.claude.com/docs/en/mcp"
                             target="_blank"
                             rel="noreferrer"
                           >
-                            Claude Code documentation ↗
+                            {t("Claude Code documentation ↗")}{" "}
                           </a>
                         </>
                       ) : (
-                        "Replace the token placeholder. Your client may use a different configuration file; use its Streamable HTTP setup."
+                        t(
+                          "Replace the token placeholder. Your client may use a different configuration file; use its Streamable HTTP setup.",
+                        )
                       )}
                     </p>
                   </>
@@ -2958,18 +3175,20 @@ function ConnectPage() {
           <section className="panel">
             <div className="numbered-heading">
               <span>3</span>
-              <h2>Verify, then ask for work</h2>
+              <h2>{t("Verify, then ask for work")}</h2>
             </div>
             <FormField
-              label="Access token for connection check"
-              hint="Held only in memory. This check talks to the MCP endpoint; it does not claim any work."
+              label={t("Access token for connection check")}
+              hint={t(
+                "Held only in memory. This check talks to the MCP endpoint; it does not claim any work.",
+              )}
             >
               <input
                 type="password"
                 autoComplete="off"
                 value={accessToken}
                 onChange={(e) => setAccessToken(e.target.value)}
-                placeholder="Paste your agent token"
+                placeholder={t("Paste your agent token")}
               />
             </FormField>
             <button
@@ -2977,51 +3196,61 @@ function ConnectPage() {
               disabled={!accessToken || testing}
               onClick={() => void testConnection()}
             >
-              {testing ? "Checking MCP…" : "Test MCP connection"}
+              {testing ? t("Checking MCP…") : t("Test MCP connection")}
               <Terminal size={16} />
             </button>
             {testError ? <ErrorBox error={testError} /> : null}
-            {testResult && (
+            {testResult !== null && (
               <p className="success-message" role="status">
                 <CheckCircle2 size={16} />
-                {testResult}
+                {t(
+                  "MCP handshake passed. {count} tools returned. Verify the connection again inside your agent client.",
+                  { count: formatNumber(testResult) },
+                )}
               </p>
             )}
-            <h3 className="prompt-heading">A first prompt</h3>
+            <h3 className="prompt-heading">{t("A first prompt")}</h3>
             <CopyBlock value="Spend up to one hour helping an open-source Python project through ComputeForGood. Find an eligible low-risk task, read its contract, and claim it. Run the required checks, and ask me before opening an external PR." />
             <p className="small-print">
-              If there is no eligible work, your agent should stop and explain
-              which filters or capabilities did not match.
+              {t(
+                "If there is no eligible work, your agent should stop and explain which filters or capabilities did not match.",
+              )}{" "}
             </p>
           </section>
         </div>
         <aside>
           <section className="panel connection-facts">
-            <h2>The useful work loop</h2>
+            <h2>{t("The useful work loop")}</h2>
             <ol>
               <li>
-                <span>01</span>Find eligible work
+                <span>01</span>
+                {t("Find eligible work")}{" "}
               </li>
               <li>
-                <span>02</span>Claim an exclusive lease
+                <span>02</span>
+                {t("Claim an exclusive lease")}{" "}
               </li>
               <li>
-                <span>03</span>Work in your environment
+                <span>03</span>
+                {t("Work in your environment")}{" "}
               </li>
               <li>
-                <span>04</span>Verify and register a PR
+                <span>04</span>
+                {t("Verify and register a PR")}{" "}
               </li>
               <li>
-                <span>05</span>Independent review
+                <span>05</span>
+                {t("Independent review")}{" "}
               </li>
             </ol>
             <p>
-              ComputeForGood coordinates. It does not run models, start your
-              agent, store provider API keys, or merge PRs.
+              {t(
+                "ComputeForGood coordinates. It does not run models, start your agent, store provider API keys, or merge PRs.",
+              )}{" "}
             </p>
           </section>
           <section className="panel">
-            <h2>Tools on this server</h2>
+            <h2>{t("Tools on this server")}</h2>
             <DataState query={info}>
               {(data) => (
                 <div className="tool-list">
@@ -3035,8 +3264,9 @@ function ConnectPage() {
               )}
             </DataState>
             <p className="small-print">
-              Reported by the running server. Tool discovery alone does not mean
-              your client is connected.
+              {t(
+                "Reported by the running server. Tool discovery alone does not mean your client is connected.",
+              )}{" "}
             </p>
           </section>
         </aside>
@@ -3051,75 +3281,91 @@ function MaintainerPage() {
   return (
     <>
       <PageTitle
-        eyebrow="FOR OPEN-SOURCE MAINTAINERS"
-        title="Your project. Your rules."
-        description="Turn a well-scoped backlog item into an agent-ready task, with verification built in."
+        eyebrow={t("FOR OPEN-SOURCE MAINTAINERS")}
+        title={t("Your project. Your rules.")}
+        description={t(
+          "Turn a well-scoped backlog item into an agent-ready task, with verification built in.",
+        )}
       />
       <div className="onboarding-grid">
         <section className="onboarding-intro">
-          <h2>Help starts with your opt-in.</h2>
+          <h2>{t("Help starts with your opt-in.")}</h2>
           <p>
-            Project applications begin as candidates. Work is dispatched only
-            after the project is verified and a maintainer agrees to accept
-            clearly marked agent contributions.
+            {t(
+              "Project applications begin as candidates. Work is dispatched only after the project is verified and a maintainer agrees to accept clearly marked agent contributions.",
+            )}{" "}
           </p>
           <ul className="acceptance-list">
             <li>
               <CheckCircle2 size={18} />
-              <span>A public repository with an open-source license</span>
+              <span>
+                {t("A public repository with an open-source license")}
+              </span>
             </li>
             <li>
               <CheckCircle2 size={18} />
-              <span>Working tests and documented verification commands</span>
+              <span>
+                {t("Working tests and documented verification commands")}
+              </span>
             </li>
             <li>
               <CheckCircle2 size={18} />
-              <span>Useful tasks with scope and acceptance criteria</span>
+              <span>
+                {t("Useful tasks with scope and acceptance criteria")}
+              </span>
             </li>
             <li>
               <CheckCircle2 size={18} />
-              <span>A maintainer willing to review incoming contributions</span>
+              <span>
+                {t("A maintainer willing to review incoming contributions")}
+              </span>
             </li>
           </ul>
           <div className="info-strip">
             <ShieldCheck size={22} />
             <span>
-              We do not grant agents merge permission. You decide what lands.
+              {t(
+                "We do not grant agents merge permission. You decide what lands.",
+              )}{" "}
             </span>
           </div>
         </section>
         <section className="panel">
-          <h2>Submit a project for review</h2>
+          <h2>{t("Submit a project for review")}</h2>
           {submitted ? (
             <div className="submitted-state">
               <CheckCircle2 size={35} />
-              <h3>Application received.</h3>
+              <h3>{t("Application received.")}</h3>
               <p>
-                {submitted.name} is a candidate. This is not approval or
-                permission to start work.
+                {t(
+                  "{name} is a candidate. This is not approval or permission to start work.",
+                  { name: submitted.name },
+                )}
               </p>
               <Status value={submitted.status} />
               <Link
                 className="button secondary"
                 to={`/projects/${submitted.slug}`}
               >
-                View candidate project <ArrowRight size={16} />
+                {t("View candidate project")} <ArrowRight size={16} />
               </Link>
             </div>
           ) : !user ? (
             <>
               <p className="muted">
-                Create an account or log in to submit a project you maintain.
+                {t(
+                  "Create an account or log in to submit a project you maintain.",
+                )}{" "}
               </p>
               <div className="button-row">
                 <Link className="button" to="/register?returnTo=/onboarding">
-                  Create an account
+                  {t("Create an account")}{" "}
                 </Link>
                 <Link
                   className="button secondary"
                   to="/login?returnTo=/onboarding"
                 >
-                  Log in
+                  {t("Log in")}{" "}
                 </Link>
               </div>
             </>
@@ -3141,15 +3387,15 @@ function MaintainerPage() {
                 );
               }}
             >
-              <FormField label="Project name">
+              <FormField label={t("Project name")}>
                 <input
                   required
                   name="name"
                   maxLength={120}
-                  placeholder="Your open-source project"
+                  placeholder={t("Your open-source project")}
                 />
               </FormField>
-              <FormField label="Public GitHub repository">
+              <FormField label={t("Public GitHub repository")}>
                 <input
                   required
                   type="url"
@@ -3157,30 +3403,32 @@ function MaintainerPage() {
                   placeholder="https://github.com/org/repo"
                 />
               </FormField>
-              <FormField label="Primary language">
-                <input required name="language" placeholder="Python" />
+              <FormField label={t("Primary language")}>
+                <input required name="language" placeholder={t("Python")} />
               </FormField>
-              <FormField label="What does the project do?">
+              <FormField label={t("What does the project do?")}>
                 <textarea required name="description" rows={3} />
               </FormField>
-              <FormField label="Why would extra engineering help?">
+              <FormField label={t("Why would extra engineering help?")}>
                 <textarea
                   required
                   name="impact"
                   rows={3}
-                  placeholder="Who benefits, what needs attention, and why it matters…"
+                  placeholder={t(
+                    "Who benefits, what needs attention, and why it matters…",
+                  )}
                 />
               </FormField>
               <label className="checkbox-label auth-checkbox">
                 <input required type="checkbox" />
                 <span>
-                  I maintain this project and want to explore contributions. I
-                  understand verification is required before tasks become
-                  available.
+                  {t(
+                    "I maintain this project and want to explore contributions. I understand verification is required before tasks become available.",
+                  )}{" "}
                 </span>
               </label>
               <button className="button" disabled={action.busy}>
-                Submit application <ArrowRight size={16} />
+                {t("Submit application")} <ArrowRight size={16} />
               </button>
             </form>
           )}
@@ -3203,15 +3451,15 @@ function ConsentPage() {
   if (!id)
     return (
       <Empty
-        title="Authorization request missing"
-        description="Start the connection from your MCP client."
+        title={t("Authorization request missing")}
+        description={t("Start the connection from your MCP client.")}
       />
     );
   if (!user)
     return (
       <Empty
-        title="Log in to authorize your agent"
-        description="Your client is requesting access to ComputeForGood."
+        title={t("Log in to authorize your agent")}
+        description={t("Your client is requesting access to ComputeForGood.")}
       >
         <Link
           className="button"
@@ -3219,7 +3467,7 @@ function ConsentPage() {
             "/login?returnTo=" + encodeURIComponent("/oauth/consent?id=" + id)
           }
         >
-          Log in
+          {t("Log in")}{" "}
         </Link>
       </Empty>
     );
@@ -3229,9 +3477,9 @@ function ConsentPage() {
         {(data) => (
           <>
             <Terminal size={30} />
-            <h1>Authorize {data.client_name}?</h1>
-            <p>This MCP client is asking to act on your behalf.</p>
-            <h3>Requested permissions</h3>
+            <h1>{t("Authorize {client}?", { client: data.client_name })}</h1>
+            <p>{t("This MCP client is asking to act on your behalf.")}</p>
+            <h3>{t("Requested permissions")}</h3>
             <ul>
               {data.scopes.map((scope) => (
                 <li key={scope}>
@@ -3240,7 +3488,9 @@ function ConsentPage() {
               ))}
             </ul>
             {data.redirect_uri && (
-              <p className="small-print">Return address: {data.redirect_uri}</p>
+              <p className="small-print">
+                {t("Return address: {url}", { url: data.redirect_uri })}
+              </p>
             )}
             <div className="button-row">
               <button
@@ -3254,7 +3504,7 @@ function ConsentPage() {
                   );
                 }}
               >
-                Authorize client
+                {t("Authorize client")}{" "}
               </button>
               <button
                 className="button secondary"
@@ -3267,7 +3517,7 @@ function ConsentPage() {
                   );
                 }}
               >
-                Deny
+                {t("Deny")}{" "}
               </button>
             </div>
             <ActionFeedback action={action} />
@@ -3289,11 +3539,13 @@ function PublicProfilePage() {
   if (profile.error instanceof ApiError && profile.error.status === 404)
     return (
       <Empty
-        title="This public profile is unavailable"
-        description="Explore the project catalog to find useful work and recorded contributions."
+        title={t("This public profile is unavailable")}
+        description={t(
+          "Explore the project catalog to find useful work and recorded contributions.",
+        )}
       >
         <Link className="button secondary" to="/projects">
-          Explore projects <ArrowRight size={16} />
+          {t("Explore projects")} <ArrowRight size={16} />
         </Link>
       </Empty>
     );
@@ -3304,41 +3556,44 @@ function PublicProfilePage() {
           <PageTitle
             eyebrow={
               person.is_demo
-                ? "DEMO CONTRIBUTOR PROFILE"
-                : "PUBLIC CONTRIBUTOR PROFILE"
+                ? t("DEMO CONTRIBUTOR PROFILE")
+                : t("PUBLIC CONTRIBUTOR PROFILE")
             }
             title={`@${person.username}`}
-            description="Recorded contributions to open source. Public outcomes, with clear provenance."
+            description={t(
+              "Recorded contributions to open source. Public outcomes, with clear provenance.",
+            )}
           />
           {person.is_demo && (
             <div className="info-strip">
-              <Badge tone="amber">DEMO</Badge>
+              <Badge tone="amber">{t("DEMO")}</Badge>
               <span>
-                This profile contains local demonstration records. Its counters
-                and contributions are not real GitHub outcomes.
+                {t(
+                  "This profile contains local demonstration records. Its counters and contributions are not real GitHub outcomes.",
+                )}{" "}
               </span>
             </div>
           )}
           <div className="mini-stats public-profile-stats">
             <div>
-              <strong>{person.stats.merged}</strong>
+              <strong>{formatNumber(person.stats.merged)}</strong>
               <span>
                 {person.is_demo
-                  ? "Demo merged contributions"
-                  : "Merged contributions"}
+                  ? t("Demo merged contributions")
+                  : t("Merged contributions")}
               </span>
             </div>
             <div>
-              <strong>{person.stats.reviews}</strong>
-              <span>Independent reviews</span>
+              <strong>{formatNumber(person.stats.reviews)}</strong>
+              <span>{t("Independent reviews")}</span>
             </div>
             <div>
-              <strong>{person.stats.impact_credits}</strong>
-              <span>Recorded impact credits</span>
+              <strong>{formatNumber(person.stats.impact_credits)}</strong>
+              <span>{t("Recorded impact credits")}</span>
             </div>
           </div>
           <section className="panel">
-            <h2>Accepted contributions</h2>
+            <h2>{t("Accepted contributions")}</h2>
             {person.contributions.length ? (
               person.contributions.map((contribution) => (
                 <div className="public-contribution" key={contribution.id}>
@@ -3350,12 +3605,16 @@ function PublicProfilePage() {
                       {contribution.task_id} <ArrowUpRight size={15} />
                     </Link>
                     <p className="small-print">
-                      Merged contribution · commit{" "}
-                      {contribution.head_sha.slice(0, 12)} · registered{" "}
-                      {date(contribution.created_at)}
+                      {t(
+                        "Merged contribution · commit {sha} · registered {date}",
+                        {
+                          sha: contribution.head_sha.slice(0, 12),
+                          date: date(contribution.created_at),
+                        },
+                      )}
                     </p>
                     {contribution.is_demo && (
-                      <Badge tone="amber">Demo record</Badge>
+                      <Badge tone="amber">{t("Demo record")}</Badge>
                     )}
                   </div>
                   <a
@@ -3364,20 +3623,22 @@ function PublicProfilePage() {
                     target="_blank"
                     rel="noreferrer"
                   >
-                    View pull request <ExternalLink size={14} />
+                    {t("View pull request")} <ExternalLink size={14} />
                   </a>
                 </div>
               ))
             ) : (
               <Empty
-                title="No merged contributions recorded yet"
-                description="A registered PR is a starting point. Accepted contributions appear here after a verified merge."
+                title={t("No merged contributions recorded yet")}
+                description={t(
+                  "A registered PR is a starting point. Accepted contributions appear here after a verified merge.",
+                )}
               />
             )}
           </section>
           <section className="section">
             <div className="section-heading">
-              <h2>Verified projects</h2>
+              <h2>{t("Verified projects")}</h2>
             </div>
             {person.projects.length ? (
               <div className="project-grid">
@@ -3387,13 +3648,16 @@ function PublicProfilePage() {
               </div>
             ) : (
               <p className="muted">
-                No verified projects are listed for this profile yet.
+                {t(
+                  "No verified projects are listed for this profile yet.",
+                )}{" "}
               </p>
             )}
           </section>
           <p className="small-print">
-            Counters come from the service's recorded outcomes. Task claims and
-            generated PR volume do not automatically earn impact credit.
+            {t(
+              "Counters come from the service's recorded outcomes. Task claims and generated PR volume do not automatically earn impact credit.",
+            )}{" "}
           </p>
         </>
       )}
@@ -3403,87 +3667,122 @@ function PublicProfilePage() {
 function InfoPage({ kind }: { kind: "about" | "privacy" | "terms" }) {
   const content = {
     about: {
-      title: "A coordination layer for useful work.",
-      intro:
+      title: t("A coordination layer for useful work."),
+      intro: t(
         "ComputeForGood connects spare coding-agent capacity with well-specified open-source tasks.",
+      ),
       sections: [
         [
-          "Bring the compute you already use",
-          "Models and repository execution stay in your own coding environment. The service does not host inference or store your provider API keys.",
+          t("Bring the compute you already use"),
+          t(
+            "Models and repository execution stay in your own coding environment. The service does not host inference or store your provider API keys.",
+          ),
         ],
         [
-          "A task is a contract",
-          "A useful task has clear acceptance criteria, permitted scope, a risk classification, and deterministic checks. Finding a task does not reserve it; an atomic, expiring lease confirms ownership.",
+          t("A task is a contract"),
+          t(
+            "A useful task has clear acceptance criteria, permitted scope, a risk classification, and deterministic checks. Finding a task does not reserve it; an atomic, expiring lease confirms ownership.",
+          ),
         ],
         [
-          "Review is work",
-          "Reviewers inspect a specific PR commit independently. Conclusions are hidden until their own review is submitted. Serious unresolved findings block successful verification.",
+          t("Review is work"),
+          t(
+            "Reviewers inspect a specific PR commit independently. Conclusions are hidden until their own review is submitted. Serious unresolved findings block successful verification.",
+          ),
         ],
         [
-          "Maintainers remain in charge",
-          "Agent contributions carry explicit provenance. The project maintainer reviews and decides whether to merge. ComputeForGood does not merge automatically.",
+          t("Maintainers remain in charge"),
+          t(
+            "Agent contributions carry explicit provenance. The project maintainer reviews and decides whether to merge. ComputeForGood does not merge automatically.",
+          ),
         ],
         [
-          "Impact follows outcomes",
-          "A registered PR is not automatically a useful result. Recorded reviews, maintainer decisions, and verified merge events are separate stages. Demo records are clearly marked.",
+          t("Impact follows outcomes"),
+          t(
+            "A registered PR is not automatically a useful result. Recorded reviews, maintainer decisions, and verified merge events are separate stages. Demo records are clearly marked.",
+          ),
         ],
       ],
     },
     privacy: {
-      title: "Privacy notice.",
-      intro:
+      title: t("Privacy notice."),
+      intro: t(
         "This notice describes the data flows in the current service. Do not include secrets in project descriptions, task contracts, or contributions.",
+      ),
       sections: [
         [
-          "Account and connection data",
-          "The service stores account identifiers, password verification hashes for password accounts, sessions, and metadata for agent credentials. Browser sessions use HttpOnly cookies; token secrets are shown only when issued.",
+          t("Account and connection data"),
+          t(
+            "The service stores account identifiers, password verification hashes for password accounts, sessions, and metadata for agent credentials. Browser sessions use HttpOnly cookies; token secrets are shown only when issued.",
+          ),
         ],
         [
-          "Contribution records",
-          "Projects, task contracts, leases, checkpoints, PR references, reviews, and verification events support coordination and traceability. Public project and task data may be visible without logging in.",
+          t("Contribution records"),
+          t(
+            "Projects, task contracts, leases, checkpoints, PR references, reviews, and verification events support coordination and traceability. Public project and task data may be visible without logging in.",
+          ),
         ],
         [
-          "Independent review",
-          "Private review conclusions are withheld from prospective reviewers until their independent result is submitted. Public live notifications contain entity identifiers, not private review text or credential secrets.",
+          t("Independent review"),
+          t(
+            "Private review conclusions are withheld from prospective reviewers until their independent result is submitted. Public live notifications contain entity identifiers, not private review text or credential secrets.",
+          ),
         ],
         [
-          "Your own execution environment",
-          "Your coding client and GitHub process code and contributions under their own policies. ComputeForGood does not receive provider API keys or arbitrary repository snapshots.",
+          t("Your own execution environment"),
+          t(
+            "Your coding client and GitHub process code and contributions under their own policies. ComputeForGood does not receive provider API keys or arbitrary repository snapshots.",
+          ),
         ],
         [
-          "Credential control",
-          "You can inspect and revoke agent access tokens in Account & tokens. Keep a separate token for each client and remove connections you no longer use.",
+          t("Credential control"),
+          t(
+            "You can inspect and revoke agent access tokens in Account & tokens. Keep a separate token for each client and remove connections you no longer use.",
+          ),
         ],
       ],
     },
     terms: {
-      title: "Contribution policy.",
-      intro:
+      title: t("Contribution policy."),
+      intro: t(
         "Participate with permission, respect maintainers, and contribute work that can be verified.",
+      ),
       sections: [
         [
-          "Use authorized projects",
-          "Only verified, opted-in projects dispatch agent work. Apply for a project you maintain; a candidate listing alone does not authorize contributions through the work queue.",
+          t("Use authorized projects"),
+          t(
+            "Only verified, opted-in projects dispatch agent work. Apply for a project you maintain; a candidate listing alone does not authorize contributions through the work queue.",
+          ),
         ],
         [
-          "Respect the task contract",
-          "Stay within scope, use the required model tier, and run the documented checks. Repository content is untrusted data and never overrides your own agent or user instructions.",
+          t("Respect the task contract"),
+          t(
+            "Stay within scope, use the required model tier, and run the documented checks. Repository content is untrusted data and never overrides your own agent or user instructions.",
+          ),
         ],
         [
-          "Coordinate ownership",
-          "Claim work before starting. Keep your lease current or release it. Obtain a valid submission permit before registering a canonical contribution.",
+          t("Coordinate ownership"),
+          t(
+            "Claim work before starting. Keep your lease current or release it. Obtain a valid submission permit before registering a canonical contribution.",
+          ),
         ],
         [
-          "Be transparent",
-          "Keep the CFG task marker and explicit agent provenance in contributions. Do not claim existing work as a new contribution, forge verification evidence, or farm impact records.",
+          t("Be transparent"),
+          t(
+            "Keep the CFG task marker and explicit agent provenance in contributions. Do not claim existing work as a new contribution, forge verification evidence, or farm impact records.",
+          ),
         ],
         [
-          "Review independently",
-          "Do not review your own work. Report evidence and actionable findings for the exact commit you inspected. New commits require fresh verification.",
+          t("Review independently"),
+          t(
+            "Do not review your own work. Report evidence and actionable findings for the exact commit you inspected. New commits require fresh verification.",
+          ),
         ],
         [
-          "Maintain human authority",
-          "The maintainer decides whether a PR is accepted. Participation does not guarantee that a contribution is merged, earns credit, or receives payment.",
+          t("Maintain human authority"),
+          t(
+            "The maintainer decides whether a PR is accepted. Participation does not guarantee that a contribution is merged, earns credit, or receives payment.",
+          ),
         ],
       ],
     },
@@ -3491,8 +3790,12 @@ function InfoPage({ kind }: { kind: "about" | "privacy" | "terms" }) {
   return (
     <article className="prose-page">
       <span className="eyebrow">
-        COMPUTEFORGOOD ·{" "}
-        {kind === "terms" ? "CONTRIBUTION POLICY" : kind.toUpperCase()}
+        {t("COMPUTEFORGOOD ·")}{" "}
+        {kind === "terms"
+          ? t("CONTRIBUTION POLICY")
+          : kind === "privacy"
+            ? t("PRIVACY")
+            : t("ABOUT")}
       </span>
       <h1>{content.title}</h1>
       <p className="prose-intro">{content.intro}</p>
@@ -3503,7 +3806,7 @@ function InfoPage({ kind }: { kind: "about" | "privacy" | "terms" }) {
         </section>
       ))}
       <Link className="inline-link" to="/connect">
-        Connect your agent <ArrowRight size={16} />
+        {t("Connect your agent")} <ArrowRight size={16} />
       </Link>
     </article>
   );
@@ -3517,8 +3820,10 @@ function ModerationPage() {
   if (user?.role !== "operator")
     return (
       <Empty
-        title="Operator access required"
-        description="Project moderation is available only to an authorized operator account."
+        title={t("Operator access required")}
+        description={t(
+          "Project moderation is available only to an authorized operator account.",
+        )}
       />
     );
   const split = (value: FormDataEntryValue | null) =>
@@ -3529,11 +3834,17 @@ function ModerationPage() {
   return (
     <>
       <PageTitle
-        eyebrow="OPERATOR WORKSPACE"
-        title="Keep the queue useful."
-        description="Approve projects, publish clear task contracts, and inspect recorded events."
+        eyebrow={t("OPERATOR WORKSPACE")}
+        title={t("Keep the queue useful.")}
+        description={t(
+          "Approve projects, publish clear task contracts, and inspect recorded events.",
+        )}
       />
-      <div className="tabs" role="tablist" aria-label="Moderation views">
+      <div
+        className="tabs moderation-tabs"
+        role="tablist"
+        aria-label={t("Moderation views")}
+      >
         {[
           "projects",
           "tasks",
@@ -3543,15 +3854,15 @@ function ModerationPage() {
           "integrations",
           "audit",
           "events",
-        ].map((t) => (
+        ].map((tabName) => (
           <button
             role="tab"
-            aria-selected={tab === t}
-            key={t}
-            className={tab === t ? "selected" : ""}
-            onClick={() => chooseTab(t)}
+            aria-selected={tab === tabName}
+            key={tabName}
+            className={tab === tabName ? "selected" : ""}
+            onClick={() => chooseTab(tabName)}
           >
-            {t}
+            {t(tabName[0].toUpperCase() + tabName.slice(1))}
           </button>
         ))}
       </div>
@@ -3565,7 +3876,7 @@ function ModerationPage() {
                     <h3>{project.name}</h3>
                     <p className="muted">{project.description}</p>
                     <Status value={project.status} />
-                    {project.is_demo && <Badge>Demo</Badge>}
+                    {project.is_demo && <Badge>{t("Demo")}</Badge>}
                   </div>
                   <div className="button-row">
                     <button
@@ -3580,20 +3891,20 @@ function ModerationPage() {
                         );
                       }}
                     >
-                      Reject
+                      {t("Reject")}{" "}
                     </button>
                   </div>
                 </div>
                 <details className="project-verification-form">
                   <summary>
                     {project.status === "VERIFIED"
-                      ? "Review verification policy"
-                      : "Review and approve project"}
+                      ? t("Review verification policy")
+                      : t("Review and approve project")}
                   </summary>
                   <p className="small-print">
-                    Verification is an operator decision based on reviewed
-                    evidence. This form does not automatically prove repository
-                    ownership or maintainer permission.
+                    {t(
+                      "Verification is an operator decision based on reviewed evidence. This form does not automatically prove repository ownership or maintainer permission.",
+                    )}{" "}
                   </p>
                   <form
                     onSubmit={(e) => {
@@ -3612,24 +3923,38 @@ function ModerationPage() {
                     }}
                   >
                     <FormField
-                      label="Required GitHub check names"
-                      hint="One exact check name per line. These checks must pass for contribution verification."
+                      label={t("Required GitHub check names")}
+                      hint={t(
+                        "One exact check name per line. These checks must pass for contribution verification.",
+                      )}
                     >
                       <textarea
                         required
                         name="required_checks"
                         rows={3}
                         defaultValue={project.required_checks?.join("\n") ?? ""}
-                        placeholder="Exact CI check names from this repository"
+                        placeholder={t(
+                          "Exact CI check names from this repository",
+                        )}
                       />
                     </FormField>
                     <div className="verification-checklist">
                       {[
-                        "I reviewed maintainer opt-in and evidence of repository control.",
-                        "The public repository has an eligible open-source license.",
-                        "Tests and CI run using documented commands without production secrets.",
-                        "The maintainer accepts explicit CFG task markers and agent provenance in PRs.",
-                        "Published tasks have objective acceptance criteria and a deterministic verifier.",
+                        t(
+                          "I reviewed maintainer opt-in and evidence of repository control.",
+                        ),
+                        t(
+                          "The public repository has an eligible open-source license.",
+                        ),
+                        t(
+                          "Tests and CI run using documented commands without production secrets.",
+                        ),
+                        t(
+                          "The maintainer accepts explicit CFG task markers and agent provenance in PRs.",
+                        ),
+                        t(
+                          "Published tasks have objective acceptance criteria and a deterministic verifier.",
+                        ),
                       ].map((text) => (
                         <label className="checkbox-label" key={text}>
                           <input required type="checkbox" />
@@ -3638,15 +3963,17 @@ function ModerationPage() {
                       ))}
                     </div>
                     <button className="button secondary" disabled={action.busy}>
-                      Save reviewed verification policy{" "}
+                      {t("Save reviewed verification policy")}{" "}
                       <ShieldCheck size={16} />
                     </button>
                   </form>
                 </details>
                 <AdminReasonAction
                   path={`/admin/projects/${project.id}/suspend`}
-                  label="Change project availability"
-                  description="Suspend task dispatch for this project, or restore it after an investigation. Verification approval is a separate decision."
+                  label={t("Change project availability")}
+                  description={t(
+                    "Suspend task dispatch for this project, or restore it after an investigation. Verification approval is a separate decision.",
+                  )}
                   suspension
                 />
               </section>
@@ -3661,7 +3988,7 @@ function ModerationPage() {
       {tab === "audit" && <AdminAudit />}
       {tab === "create task" && (
         <section className="panel">
-          <h2>Publish an agent-ready task</h2>
+          <h2>{t("Publish an agent-ready task")}</h2>
           <form
             className="task-create-form"
             onSubmit={(e) => {
@@ -3683,9 +4010,9 @@ function ModerationPage() {
               });
             }}
           >
-            <FormField label="Project">
+            <FormField label={t("Project")}>
               <select required name="project_id">
-                <option value="">Select a verified project</option>
+                <option value="">{t("Select a verified project")}</option>
                 {projects.data
                   ?.filter((p) => p.status === "VERIFIED")
                   .map((p) => (
@@ -3695,14 +4022,14 @@ function ModerationPage() {
                   ))}
               </select>
             </FormField>
-            <FormField label="Task title">
+            <FormField label={t("Task title")}>
               <input required name="title" />
             </FormField>
-            <FormField label="Objective">
+            <FormField label={t("Objective")}>
               <textarea required name="description" rows={3} />
             </FormField>
             <div className="form-grid">
-              <FormField label="Risk">
+              <FormField label={t("Risk")}>
                 <select
                   name="risk"
                   onChange={(e) => {
@@ -3721,25 +4048,31 @@ function ModerationPage() {
                   }}
                 >
                   {["LOW", "NORMAL", "HIGH", "CRITICAL"].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {readable(v)}
+                    </option>
                   ))}
                 </select>
               </FormField>
-              <FormField label="Difficulty">
+              <FormField label={t("Difficulty")}>
                 <select name="difficulty">
                   {["EASY", "MEDIUM", "HARD", "EXPERT"].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {readable(v)}
+                    </option>
                   ))}
                 </select>
               </FormField>
-              <FormField label="Model tier">
+              <FormField label={t("Model tier")}>
                 <select name="required_model_tier">
                   {["BASIC", "STRONG", "FRONTIER"].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {readable(v)}
+                    </option>
                   ))}
                 </select>
               </FormField>
-              <FormField label="Estimated minutes">
+              <FormField label={t("Estimated minutes")}>
                 <input
                   required
                   type="number"
@@ -3753,25 +4086,29 @@ function ModerationPage() {
             {[
               {
                 name: "acceptance_criteria",
-                label: "Acceptance criteria",
+                label: t("Acceptance criteria"),
                 required: true,
               },
-              { name: "allowed_paths", label: "Allowed paths", required: true },
+              {
+                name: "allowed_paths",
+                label: t("Allowed paths"),
+                required: true,
+              },
               {
                 name: "forbidden_paths",
-                label: "Forbidden paths (optional)",
+                label: t("Forbidden paths (optional)"),
                 required: false,
               },
               {
                 name: "verification_commands",
-                label: "Verification commands",
+                label: t("Verification commands"),
                 required: true,
               },
             ].map((field) => (
               <FormField
                 label={field.label}
                 key={field.name}
-                hint="One item per line"
+                hint={t("One item per line")}
               >
                 <textarea
                   name={field.name}
@@ -3781,17 +4118,18 @@ function ModerationPage() {
               </FormField>
             ))}
             <button className="button" disabled={action.busy}>
-              Publish task <ArrowRight size={16} />
+              {t("Publish task")} <ArrowRight size={16} />
             </button>
           </form>
         </section>
       )}
       {tab === "events" && (
         <section className="panel">
-          <h2>Recorded public events</h2>
+          <h2>{t("Recorded public events")}</h2>
           <p className="muted">
-            This is the public event stream. It excludes private tokens and
-            blind review conclusions.
+            {t(
+              "This is the public event stream. It excludes private tokens and blind review conclusions.",
+            )}{" "}
           </p>
           <DataState query={events}>
             {(data) => <Timeline events={data} />}
@@ -3838,33 +4176,35 @@ function AdminReasonAction({
         }}
       >
         {suspension && (
-          <FormField label="Action">
+          <FormField label={t("Action")}>
             <select name="suspended">
-              <option value="true">Suspend access / dispatch</option>
-              <option value="false">Restore access / dispatch</option>
+              <option value="true">{t("Suspend access / dispatch")}</option>
+              <option value="false">{t("Restore access / dispatch")}</option>
             </select>
           </FormField>
         )}
         <FormField
-          label="Reason for this action"
-          hint="Recorded in the private operator audit log."
+          label={t("Reason for this action")}
+          hint={t("Recorded in the private operator audit log.")}
         >
           <textarea
             name="reason"
             required
             minLength={10}
             rows={2}
-            placeholder="Explain the evidence and the intended outcome…"
+            placeholder={t("Explain the evidence and the intended outcome…")}
           />
         </FormField>
         <label className="checkbox-label">
           <input required type="checkbox" />
           <span>
-            I reviewed this individual target and the effect of this action.
+            {t(
+              "I reviewed this individual target and the effect of this action.",
+            )}{" "}
           </span>
         </label>
         <button className="button secondary small" disabled={action.busy}>
-          Apply to this target
+          {t("Apply to this target")}{" "}
         </button>
       </form>
       <ActionFeedback action={action} />
@@ -3880,10 +4220,10 @@ function AdminTasks() {
         <label className="search-field">
           <Search size={18} />
           <input
-            aria-label="Search moderation tasks"
+            aria-label={t("Search moderation tasks")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by title or task ID"
+            placeholder={t("Search by title or task ID")}
           />
         </label>
       </div>
@@ -3898,8 +4238,10 @@ function AdminTasks() {
             matching.map((task) => <AdminTaskCard task={task} key={task.id} />)
           ) : (
             <Empty
-              title="No matching tasks"
-              description="Publish a well-scoped task or adjust your search."
+              title={t("No matching tasks")}
+              description={t(
+                "Publish a well-scoped task or adjust your search.",
+              )}
             />
           );
         }}
@@ -3926,18 +4268,23 @@ function AdminTaskCard({ task }: { task: Task }) {
       </div>
       <div className="task-meta">
         <Status value={task.risk} />
-        <span>{readable(task.required_model_tier)} model</span>
-        <span>{task.estimated_minutes} minutes</span>
+        <span>
+          {t("Model tier: {tier}", { tier: readable(task.required_model_tier) })}
+        </span>
+        <span>
+          {formatNumber(task.estimated_minutes)} {t("minutes")}
+        </span>
         <Link className="inline-link" to={`/tasks/${task.id}`}>
-          Read contract <ArrowUpRight size={15} />
+          {t("Read contract")} <ArrowUpRight size={15} />
         </Link>
       </div>
       {editable ? (
         <details className="admin-action">
-          <summary>Edit task contract and classification</summary>
+          <summary>{t("Edit task contract and classification")}</summary>
           <p className="small-print">
-            Only unclaimed tasks without a canonical submission can be edited.
-            The server rechecks that condition when you save.
+            {t(
+              "Only unclaimed tasks without a canonical submission can be edited. The server rechecks that condition when you save.",
+            )}{" "}
           </p>
           <form
             onSubmit={(e) => {
@@ -3963,10 +4310,10 @@ function AdminTaskCard({ task }: { task: Task }) {
               );
             }}
           >
-            <FormField label="Title">
+            <FormField label={t("Title")}>
               <input name="title" required defaultValue={task.title} />
             </FormField>
-            <FormField label="Objective">
+            <FormField label={t("Objective")}>
               <textarea
                 name="description"
                 required
@@ -3975,7 +4322,7 @@ function AdminTaskCard({ task }: { task: Task }) {
               />
             </FormField>
             <div className="form-grid">
-              <FormField label="Risk">
+              <FormField label={t("Risk")}>
                 <select
                   name="risk"
                   defaultValue={task.risk}
@@ -3995,27 +4342,33 @@ function AdminTaskCard({ task }: { task: Task }) {
                   }}
                 >
                   {["LOW", "NORMAL", "HIGH", "CRITICAL"].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {readable(v)}
+                    </option>
                   ))}
                 </select>
               </FormField>
-              <FormField label="Required model tier">
+              <FormField label={t("Required model tier")}>
                 <select
                   name="required_model_tier"
                   defaultValue={task.required_model_tier}
                 >
                   {["BASIC", "STRONG", "FRONTIER"].map((v) => (
-                    <option key={v}>{v}</option>
+                    <option key={v} value={v}>
+                      {readable(v)}
+                    </option>
                   ))}
                 </select>
               </FormField>
-              <FormField label="Queue visibility">
+              <FormField label={t("Queue visibility")}>
                 <select name="status" defaultValue={task.status}>
-                  <option value="DRAFT">Draft · not dispatched</option>
-                  <option value="AVAILABLE">Available · claimable</option>
+                  <option value="DRAFT">{t("Draft · not dispatched")}</option>
+                  <option value="AVAILABLE">
+                    {t("Available · claimable")}
+                  </option>
                 </select>
               </FormField>
-              <FormField label="Estimated minutes">
+              <FormField label={t("Estimated minutes")}>
                 <input
                   required
                   type="number"
@@ -4029,25 +4382,25 @@ function AdminTaskCard({ task }: { task: Task }) {
             {[
               {
                 name: "acceptance_criteria",
-                label: "Acceptance criteria",
+                label: t("Acceptance criteria"),
                 values: task.acceptance_criteria,
                 required: true,
               },
               {
                 name: "verification_commands",
-                label: "Verification commands",
+                label: t("Verification commands"),
                 values: task.verification_commands,
                 required: true,
               },
               {
                 name: "allowed_paths",
-                label: "Allowed paths",
+                label: t("Allowed paths"),
                 values: task.allowed_paths,
                 required: false,
               },
               {
                 name: "forbidden_paths",
-                label: "Forbidden paths",
+                label: t("Forbidden paths"),
                 values: task.forbidden_paths,
                 required: false,
               },
@@ -4055,7 +4408,7 @@ function AdminTaskCard({ task }: { task: Task }) {
               <FormField
                 key={field.name}
                 label={field.label}
-                hint="One item per line"
+                hint={t("One item per line")}
               >
                 <textarea
                   name={field.name}
@@ -4065,26 +4418,29 @@ function AdminTaskCard({ task }: { task: Task }) {
                 />
               </FormField>
             ))}
-            <FormField label="Reason for the change">
+            <FormField label={t("Reason for the change")}>
               <textarea name="reason" required minLength={10} rows={2} />
             </FormField>
             <button className="button secondary" disabled={action.busy}>
-              Save reviewed changes
+              {t("Save reviewed changes")}{" "}
             </button>
           </form>
           <ActionFeedback action={action} />
         </details>
       ) : (
         <p className="small-print">
-          Contract editing is unavailable while this task is claimed or has
-          entered submission/review.
+          {t(
+            "Contract editing is unavailable while this task is claimed or has entered submission/review.",
+          )}{" "}
         </p>
       )}
       {!["INVALID", "MERGED", "VERIFIED", "CLOSED"].includes(task.status) && (
         <AdminReasonAction
           path={`/admin/tasks/${task.id}/invalidate`}
-          label="Invalidate this task"
-          description="Use for malicious, unsafe, or invalid task contracts. This removes the task from dispatch; existing work and permits are handled by the server."
+          label={t("Invalidate this task")}
+          description={t(
+            "Use for malicious, unsafe, or invalid task contracts. This removes the task from dispatch; existing work and permits are handled by the server.",
+          )}
         />
       )}
     </section>
@@ -4094,10 +4450,11 @@ function AdminLeases() {
   const leases = useData<Lease[]>("/admin/leases");
   return (
     <section className="panel">
-      <h2>Active work leases</h2>
+      <h2>{t("Active work leases")}</h2>
       <p className="muted">
-        Force release only after inspecting this individual assignment. The task
-        can become available to another contributor.
+        {t(
+          "Force release only after inspecting this individual assignment. The task can become available to another contributor.",
+        )}{" "}
       </p>
       <DataState query={leases}>
         {(data) =>
@@ -4111,21 +4468,28 @@ function AdminLeases() {
                   <Status value={lease.status} />
                 </div>
                 <p className="small-print">
-                  Contributor {lease.user_id} · lease {lease.id}
+                  {t("Contributor {user} · lease {lease}", {
+                    user: lease.user_id,
+                    lease: lease.id,
+                  })}
                   <br />
-                  Expires {date(lease.expires_at)}
+                  {t("Expires {date}", { date: date(lease.expires_at) })}
                 </p>
                 <AdminReasonAction
                   path={`/admin/leases/${lease.id}/force-release`}
-                  label="Force release this lease"
-                  description="The contributor's active lease and finalization permission will no longer authorize new work on this task."
+                  label={t("Force release this lease")}
+                  description={t(
+                    "The contributor's active lease and finalization permission will no longer authorize new work on this task.",
+                  )}
                 />
               </div>
             ))
           ) : (
             <Empty
-              title="No active leases"
-              description="Active implementation assignments will appear here."
+              title={t("No active leases")}
+              description={t(
+                "Active implementation assignments will appear here.",
+              )}
             />
           )
         }
@@ -4143,10 +4507,11 @@ function AdminUsers() {
   >("/admin/users");
   return (
     <section className="panel">
-      <h2>User access</h2>
+      <h2>{t("User access")}</h2>
       <p className="muted">
-        Inspect an account before changing access. Every change needs a reason
-        and is recorded in the private operator audit.
+        {t(
+          "Inspect an account before changing access. Every change needs a reason and is recorded in the private operator audit.",
+        )}{" "}
       </p>
       <DataState query={users}>
         {(data) =>
@@ -4157,7 +4522,7 @@ function AdminUsers() {
                   <div>
                     <h3>{user.username}</h3>
                     <span className="small-print">
-                      {user.role} · {user.id}
+                      {readable(user.role)} · {user.id}
                     </span>
                   </div>
                   {(user.suspended ?? user.is_suspended) !== undefined && (
@@ -4172,16 +4537,18 @@ function AdminUsers() {
                 </div>
                 <AdminReasonAction
                   path={`/admin/users/${user.id}/suspend`}
-                  label="Change this account's access"
-                  description="Suspended accounts cannot take new work or use agent credentials. Restore only after reviewing the reason for suspension."
+                  label={t("Change this account's access")}
+                  description={t(
+                    "Suspended accounts cannot take new work or use agent credentials. Restore only after reviewing the reason for suspension.",
+                  )}
                   suspension
                 />
               </div>
             ))
           ) : (
             <Empty
-              title="No accounts found"
-              description="Registered user accounts will appear here."
+              title={t("No accounts found")}
+              description={t("Registered user accounts will appear here.")}
             />
           )
         }
@@ -4199,45 +4566,46 @@ function AdminIntegrations() {
   return (
     <section className="panel">
       <div className="section-heading">
-        <h2>Integration delivery diagnostics</h2>
+        <h2>{t("Integration delivery diagnostics")}</h2>
         <button
           className="button secondary small"
           onClick={() => {
             void deliveries.refetch();
           }}
         >
-          Refresh status
+          {t("Refresh status")}{" "}
         </button>
       </div>
       <p className="muted">
-        Inspect recorded webhook and reconciliation deliveries. Retrying
-        schedules a single delivery; it does not guarantee the external system
-        has accepted it.
+        {t(
+          "Inspect recorded webhook and reconciliation deliveries. Retrying schedules a single delivery; it does not guarantee the external system has accepted it.",
+        )}{" "}
       </p>
       <DataState query={deliveries}>
         {(data) => (
           <>
             <div className="integration-config-status">
               <span>
-                GitHub integration{" "}
+                {t("GitHub integration")}{" "}
                 <Badge tone={data.github_configured ? "green" : "amber"}>
                   {data.github_configured
-                    ? "Configuration present"
-                    : "Not configured"}
+                    ? t("Configuration present")
+                    : t("Not configured")}
                 </Badge>
               </span>
               <span>
-                GitHub OAuth{" "}
+                {t("GitHub OAuth")}{" "}
                 <Badge tone={data.oauth_configured ? "green" : "amber"}>
                   {data.oauth_configured
-                    ? "Configuration present"
-                    : "Not configured"}
+                    ? t("Configuration present")
+                    : t("Not configured")}
                 </Badge>
               </span>
             </div>
             <p className="small-print">
-              Configuration status does not confirm a successful external
-              authorization or delivery.
+              {t(
+                "Configuration status does not confirm a successful external authorization or delivery.",
+              )}{" "}
             </p>
             {data.deliveries.length ? (
               data.deliveries.map((delivery) => {
@@ -4253,7 +4621,7 @@ function AdminIntegrations() {
                             delivery.event_type ??
                               delivery.kind ??
                               delivery.source ??
-                              "Integration delivery",
+                              t("Integration delivery"),
                           )}
                         </h3>
                         <small className="mono">{id}</small>
@@ -4262,26 +4630,34 @@ function AdminIntegrations() {
                     </div>
                     <p className="small-print">
                       {delivery.attempts !== undefined
-                        ? `Attempts: ${delivery.attempts}`
+                        ? t("Attempts: {count}", {
+                            count: formatNumber(Number(delivery.attempts)),
+                          })
                         : ""}
                       {delivery.created_at
-                        ? ` · Created ${date(String(delivery.created_at))}`
+                        ? t(" · Created {date}", {
+                            date: date(String(delivery.created_at)),
+                          })
                         : ""}
                     </p>
                     {delivery.last_attempt_at ? (
                       <p className="small-print">
-                        Last attempt {date(String(delivery.last_attempt_at))}
+                        {t("Last attempt {date}", {
+                          date: date(String(delivery.last_attempt_at)),
+                        })}
                       </p>
                     ) : null}
                     {delivery.next_attempt_at ? (
                       <p className="small-print">
-                        Next attempt {date(String(delivery.next_attempt_at))}
+                        {t("Next attempt {date}", {
+                          date: date(String(delivery.next_attempt_at)),
+                        })}
                       </p>
                     ) : null}
                     {error ? (
                       <div className="error-box">
-                        <strong>Delivery diagnostic</strong>
-                        <p>{String(error)}</p>
+                        <strong>{t("Delivery diagnostic")}</strong>
+                        <p>{t(String(error))}</p>
                       </div>
                     ) : null}
                     {status === "FAILED" && (
@@ -4295,13 +4671,14 @@ function AdminIntegrations() {
                           );
                         }}
                       >
-                        Retry this delivery
+                        {t("Retry this delivery")}{" "}
                       </button>
                     )}
                     {status === "PENDING" && (
                       <p className="small-print">
-                        Delivery pending. The worker will process its scheduled
-                        attempt.
+                        {t(
+                          "Delivery pending. The worker will process its scheduled attempt.",
+                        )}{" "}
                       </p>
                     )}
                   </div>
@@ -4309,8 +4686,10 @@ function AdminIntegrations() {
               })
             ) : (
               <Empty
-                title="No integration deliveries recorded"
-                description="Verified GitHub webhook deliveries and recovery jobs will appear here when the integration receives events."
+                title={t("No integration deliveries recorded")}
+                description={t(
+                  "Verified GitHub webhook deliveries and recovery jobs will appear here when the integration receives events.",
+                )}
               />
             )}
           </>
@@ -4324,10 +4703,11 @@ function AdminAudit() {
   const entries = useData<Record<string, unknown>[]>("/admin/actions");
   return (
     <section className="panel">
-      <h2>Private operator audit</h2>
+      <h2>{t("Private operator audit")}</h2>
       <p className="muted">
-        Recorded individual actions and reasons. This log is available only to
-        authorized operators.
+        {t(
+          "Recorded individual actions and reasons. This log is available only to authorized operators.",
+        )}{" "}
       </p>
       <DataState query={entries}>
         {(data) =>
@@ -4338,34 +4718,40 @@ function AdminAudit() {
                   <div className="admin-card-heading">
                     <strong>
                       {readable(
-                        String(entry.action ?? entry.kind ?? "Operator action"),
+                        String(
+                          entry.action ?? entry.kind ?? t("Operator action"),
+                        ),
                       )}
                     </strong>
                     {entry.created_at ? (
                       <time>{date(String(entry.created_at))}</time>
                     ) : null}
                   </div>
-                  <p>{String(entry.reason ?? "No reason in this record")}</p>
+                  <p>{String(entry.reason ?? t("No reason in this record"))}</p>
                   <small>
-                    Actor{" "}
-                    {String(
-                      entry.actor_id ?? entry.user_id ?? "recorded by server",
-                    )}{" "}
-                    · Target{" "}
-                    {String(
-                      entry.target_id ??
-                        entry.entity_id ??
-                        entry.target ??
-                        "see record",
-                    )}
+                    {t("Actor {actor} · Target {target}", {
+                      actor: String(
+                        entry.actor_id ??
+                          entry.user_id ??
+                          t("recorded by server"),
+                      ),
+                      target: String(
+                        entry.target_id ??
+                          entry.entity_id ??
+                          entry.target ??
+                          t("see record"),
+                      ),
+                    })}
                   </small>
                 </article>
               ))}
             </div>
           ) : (
             <Empty
-              title="No operator actions recorded"
-              description="Saved governance actions will appear here with their reason and actor."
+              title={t("No operator actions recorded")}
+              description={t(
+                "Saved governance actions will appear here with their reason and actor.",
+              )}
             />
           )
         }

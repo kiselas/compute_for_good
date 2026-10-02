@@ -30,6 +30,7 @@ Stopping preserves the database. Avoid deleting volumes when work must be retain
 - [Roadmap, including tomorrow's activation](docs/launch-roadmap.md)
 - [Production deployment and recovery runbook](docs/production-runbook.md)
 - [Screens and design](docs/design.md)
+- [Russian, English and Simplified Chinese interface](docs/i18n.md)
 - [HTTP, authorization, MCP and notification contract](docs/api-contract.md)
 - [Original product specification](docs/product/spec-v0.1.md)
 - [Initial implementation plan](docs/implementation-plan.md)

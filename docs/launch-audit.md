@@ -39,7 +39,7 @@
 | Общая интеграция с настоящими PostgreSQL/Redis, REST/MCP/Socket.IO и demo-free proxy | **59 passed**, 81.04 s, errors/failures/skips = 0 | tests/artifacts/launch-final.xml |
 | Авторизация с настоящими PostgreSQL/Redis, demo mode off | **7 passed**, 6.35 s, errors/failures/skips = 0 | tests/artifacts/auth-verification.xml |
 | Финальный nginx 1.30.5 и forwarding configuration: production HTTP/OAuth + WebSocket | **6 passed**, 1.19 s, errors/failures/skips = 0 | tests/artifacts/proxy-final.xml |
-| Frontend production build | TypeScript и Vite: exit 0; финальный bundle index-D08znBrJ.js | Docker build |
+| Frontend production build, включая мультиязычность | 747 ключей в каждом из 3 словарей; проверки i18n, TypeScript и Vite: exit 0; финальный bundle index-CEfjZZ_v.js | Docker build demo и production-mode |
 | npm production dependency audit | 0 известных vulnerabilities на момент проверки | npm audit --omit=dev --json |
 | Python pinned dependency audit | No known vulnerabilities found на момент проверки | pip-audit по backend/requirements.lock.txt |
 | Backup restore | Успешно восстановлена отдельная cfg_restore_launch_final, Alembic 5c4267c97e04, 2 projects / 5 tasks / 1 submission | artifacts/backups/cfg-20261003-015913.dump |
@@ -57,4 +57,6 @@
 
 CI workflow подготовлен в .github/workflows/ci.yml; hosted GitHub Actions не запускался. GitHub подключается завтра по запросу владельца.
 
-После проверки QA контейнеры остановлены с сохранением volumes. Основной demo stack 5180 и отдельный demo-free preview 5380 оставлены работающими. Повторный запуск QA выполняет scripts/verify.ps1. Screenshot сохраняет финальную визуальную сборку; последняя правка nginx не меняет frontend bundle.
+После проверки QA контейнеры остановлены с сохранением volumes. Основной demo stack 5180 и отдельный demo-free preview 5380 оставлены работающими. Повторный запуск QA выполняет scripts/verify.ps1.
+
+Последующее обновление интерфейса добавило русский, английский и упрощённый китайский языки. Оба frontend пересобраны и запущены; readiness обоих стеков подтверждён. Сохранение языка, текста формы и активного экрана проверено в браузере; русская и китайская мобильные версии не имеют горизонтального скролла при ширине 390 px. Новые screenshots и подробности: [i18n.md](i18n.md). Backend не изменялся; 66 интеграционных тестов выше относятся к предыдущей проверке запуска.

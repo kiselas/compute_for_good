@@ -1,3 +1,5 @@
+import { getLocale } from "./i18n";
+
 export interface User {
   id: string;
   username: string;
@@ -139,6 +141,7 @@ export async function api<T>(
     method: method ?? (body === undefined ? "GET" : "POST"),
     headers: {
       "Content-Type": "application/json",
+      "Accept-Language": getLocale(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(csrfToken &&
       !token &&
@@ -149,7 +152,7 @@ export async function api<T>(
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
   });
   if (!response.ok) {
-    let message = `Request failed (${response.status})`;
+    let message = "Request failed ({status})";
     try {
       const data = await response.json();
       message =
