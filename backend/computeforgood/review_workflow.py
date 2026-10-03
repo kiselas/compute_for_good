@@ -377,7 +377,8 @@ def create_router(database_dependency, user_dependency):
             Review.head_sha == submission.head_sha,
         ))
         if (user.role != 'operator' and user.id not in {submission.author_id, review.reviewer_id}
-                and not own_current):
+                and not own_current
+                and not s.browser_maintainer(db, s.get_task(db, submission.task_id).project_id, user)):
             s.fail(403, 'Review evidence remains blind until your current-head review is submitted')
         rows = db.scalars(select(FindingResolution).where(FindingResolution.review_id == review.id)
                           .order_by(FindingResolution.created_at)).all()

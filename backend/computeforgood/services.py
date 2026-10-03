@@ -40,6 +40,7 @@ def authenticate(db, token):
     if not user or user.suspended or (user.is_demo and not settings.demo_mode):
         fail(401, "Invalid or suspended credential")
     user.credential_scopes = credential.scopes if credential else ["work:read", "work:write"]
+    user.credential_is_demo = credential is None and user.is_demo
     return user
 
 
@@ -73,13 +74,22 @@ def lease_dto(row, token=None):
     return result
 
 
+def browser_maintainer(db, project_id, user):
+    if not user or hasattr(user, "credential_scopes") and not getattr(user, "credential_is_demo", False):
+        return False
+    project = db.get(Project, project_id)
+    return bool(project and project.status == "VERIFIED" and project.maintainer_id == user.id)
+
+
 def task_dto(db, row, user=None):
-    result = {key: getattr(row, key) for key in ("id", "project_id", "title", "description", "difficulty", "risk", "required_model_tier", "estimated_minutes", "status", "acceptance_criteria", "allowed_paths", "forbidden_paths", "verification_commands", "is_demo")}
+    result = {key: getattr(row, key) for key in ("id", "project_id", "improvement_id", "version", "title", "description", "difficulty", "risk", "required_model_tier", "estimated_minutes", "status", "acceptance_criteria", "allowed_paths", "forbidden_paths", "verification_commands", "is_demo")}
+    from .maintainer_planning import contract_locked
+    result["contract_locked"] = contract_locked(db, row)
     result["active_lease"] = None
     if row.status in {"CHANGES_NEEDED", "AWAITING_MAINTAINER", "REVIEW_PASSED"}:
         submission = db.scalar(select(Submission).where(Submission.task_id == row.id))
         own_review = submission and user and db.scalar(select(Review.id).where(Review.submission_id == submission.id, Review.reviewer_id == user.id, Review.head_sha == submission.head_sha))
-        visible = submission and user and (user.role == "operator" or submission.author_id == user.id or own_review)
+        visible = submission and user and (user.role == "operator" or submission.author_id == user.id or own_review or browser_maintainer(db, row.project_id, user))
         if not visible:
             result["status"] = "REVIEWING"
     if user:
@@ -116,7 +126,8 @@ def quorum(db, submission):
 def submission_dto(db, row, user=None, include_reviews=False):
     result = {key: getattr(row, key) for key in ("id", "task_id", "author_id", "pr_url", "head_sha", "status", "created_at", "is_demo", "checks_passed")}
     own = user and db.scalar(select(Review.id).where(Review.submission_id == row.id, Review.reviewer_id == user.id, Review.head_sha == row.head_sha))
-    visible = user and (user.role == "operator" or user.id == row.author_id or own)
+    task = db.get(Task, row.task_id)
+    visible = user and (user.role == "operator" or user.id == row.author_id or own or browser_maintainer(db, task.project_id, user))
     q = quorum(db, row)
     if not visible:
         q = {**q, "approved": 0, "blocked": False, "passed": False, "blind": True}
@@ -132,7 +143,7 @@ def submission_dto(db, row, user=None, include_reviews=False):
 def get_task(db, task_id, lock=False):
     query = select(Task).where(Task.id == task_id)
     if lock:
-        query = query.with_for_update()
+        query = query.with_for_update().execution_options(populate_existing=True)
     task = db.scalar(query)
     if not task:
         fail(404, "Task not found")
@@ -180,9 +191,12 @@ def claim(db, task_id, user):
     # Serialize user concurrency limit before task; no worker locks user rows.
     db.execute(select(User.id).where(User.id == user.id).with_for_update())
     task = get_task(db, task_id, True)
+    db.scalar(select(Project).where(Project.id == task.project_id).with_for_update().execution_options(populate_existing=True))
     timestamp = now(db)
     reap_task(db, task, timestamp)
     check_eligibility(db, task, user)
+    from .maintainer_planning import check_dispatch
+    check_dispatch(db, task)
     if task.status != "AVAILABLE":
         fail(409, "WORK_ALREADY_CLAIMED: task is not available")
     count = db.scalar(select(func.count()).select_from(Lease).where(Lease.user_id == user.id, Lease.status == "ACTIVE", Lease.expires_at > timestamp))
@@ -393,6 +407,14 @@ def process_delivery(db, delivery):
         if candidate:
             task = get_task(db, candidate.task_id, True)
             row = db.scalar(select(Submission).where(Submission.id == candidate.id).with_for_update().execution_options(populate_existing=True))
+            # An operator veto or terminal observation is authoritative. A late
+            # synchronize/closed webhook must not resurrect work or award credit.
+            if row.status in {"INVALID", "CLOSED", "MERGED"}:
+                delivery.status = "DONE"
+                delivery.attempts += 1
+                delivery.error = None
+                delivery.next_attempt_at = None
+                return
             # Webhooks may arrive out of order. Read real PR state before replacing a head.
             if not row.is_demo:
                 from .github_checks import current_pr

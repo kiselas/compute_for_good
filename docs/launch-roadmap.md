@@ -6,6 +6,8 @@ The immediate goal is a working public beta: visitors understand the project, cr
 
 Status: the local deliverables below are implemented. The completed integration run passed 59 checks, with 7 additional authorization checks; backup restore and desktop/mobile browser verification passed. See [the launch audit](launch-audit.md) for evidence and limits. External activation remains pending.
 
+Maintainer planning update, 2026-10-03: `/maintainer` now supports goals → improvement proposals → private task drafts → human approval/publication → results/acceptance. Three scoped MCP planning tools are available. The current full local run passed 78 integration tests and 7 authorization tests, with no skips. Existing launch checks below remain required; the outstanding defects in [the project audit](project-audit-2026-10-03.md) are tracked separately.
+
 | Priority | Deliverable | Completion gate |
 |---|---|---|
 | P0 | Public landing and separate participant workspace | Desktop/mobile browser checks; working primary calls to action; honest demo labels and empty states |
@@ -15,6 +17,7 @@ Status: the local deliverables below are implemented. The completed integration 
 | P0 | Production deployment configuration | Separate demo-free database; no public database/Redis ports; readiness checks; fresh migrations |
 | P0 | Recovery and operator diagnostics | Validated backup restore; isolated webhook retries and dead letter queue; Redis outage recovery |
 | P1 | Project application and personal profile | Candidate applications require operator verification; real contribution counts |
+| P1 | Maintainer roadmap and task preparation | Owner isolation, private drafts, human publication, pause controls, frozen acquired contracts and actual merge evidence |
 | P1 | GitHub adapter ready for configuration | Signed webhook verification/dedup; current SHA CI policy; linked author identity; no synthetic verification |
 
 ## Tomorrow — external activation before advertising

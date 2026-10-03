@@ -31,11 +31,12 @@ Stopping preserves the database. Avoid deleting volumes when work must be retain
 - [Production deployment and recovery runbook](docs/production-runbook.md)
 - [Screens and design](docs/design.md)
 - [Russian, English and Simplified Chinese interface](docs/i18n.md)
+- [Maintainer goals, improvement proposals, task publication and acceptance](docs/maintainer-flow.md)
 - [HTTP, authorization, MCP and notification contract](docs/api-contract.md)
 - [Original product specification](docs/product/spec-v0.1.md)
 - [Initial implementation plan](docs/implementation-plan.md)
 
-Implemented: public landing/catalogs, registration/login, GitHub account linking adapter, personal credentials and MCP OAuth, work/review leases, current-SHA reviews, revisions and independent finding resolution, project applications, profiles, operator controls, signed GitHub delivery retries and current-SHA CI reconciliation. Production Compose uses Caddy HTTPS, private service networking, demo-free storage, readiness checks and persistent volumes.
+Implemented: public landing/catalogs, registration/login, GitHub account linking adapter, personal credentials and MCP OAuth, work/review leases, current-SHA reviews, revisions and independent finding resolution, project applications, maintainer planning and acceptance, profiles, operator controls, signed GitHub delivery retries and current-SHA CI reconciliation. The maintainer workspace is at `/maintainer`: owners set goals, approve improvements and explicitly publish task drafts. Planning MCP tools require the optional `project:plan` permission and cannot approve or publish. Production Compose uses Caddy HTTPS, private service networking, demo-free storage, readiness checks and persistent volumes.
 
 Public advertising remains gated on the chosen server/domain, actual HTTPS, GitHub configuration, a real verified project/PR/merge and an external MCP-client check. Local production-mode tests do not establish public availability. GitHub remote setup and hosted Actions have deliberately not been performed.
 

@@ -18,7 +18,8 @@ from .db import SessionLocal
 from .models import ApiCredential, BrowserSession, GitHubLoginState, OAuthClient, OAuthGrant, User
 from .services import event, hash_token, now
 
-SCOPES = ["work:read", "work:write"]
+DEFAULT_SCOPES = ["work:read", "work:write"]
+SCOPES = DEFAULT_SCOPES + ["project:plan"]
 COOKIE = "cfg_session"
 router = APIRouter()
 limiter = Redis.from_url(settings.redis_url, socket_timeout=2, socket_connect_timeout=2)
@@ -210,7 +211,7 @@ def credential_dto(row):
 
 class CredentialBody(BaseModel):
     name: str = Field(min_length=1, max_length=100)
-    scopes: list[str] = Field(default_factory=lambda: SCOPES.copy(), min_length=1, max_length=2)
+    scopes: list[str] = Field(default_factory=lambda: DEFAULT_SCOPES.copy(), min_length=1, max_length=3)
     expires_in_days: int = Field(default=30, ge=1, le=90)
 
 

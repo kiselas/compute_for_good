@@ -66,6 +66,7 @@ import {
 } from "./api";
 import { t, useLocale, formatDate, formatNumber } from "./i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
+import MaintainerWorkspace from "./MaintainerWorkspace";
 
 const Session = createContext<{
   user: User | null;
@@ -431,6 +432,7 @@ export default function App() {
       "/account",
       "/moderation",
       "/onboarding",
+      "/maintainer",
     ].some((path) => location.pathname.startsWith(path));
   useEffect(() => {
     setMobile(false);
@@ -462,6 +464,7 @@ export default function App() {
     { to: "/connect", label: t("Connect an agent"), icon: Terminal },
     { to: "/account", label: t("Account & tokens"), icon: Code2 },
     { to: "/onboarding", label: t("For maintainers"), icon: Globe2 },
+    { to: "/maintainer", label: t("My projects"), icon: Layers3 },
     ...(user?.role === "operator"
       ? [{ to: "/moderation", label: t("Moderation"), icon: ShieldCheck }]
       : []),
@@ -615,6 +618,8 @@ export default function App() {
               <Route path="/register" element={<AuthPage register />} />
               <Route path="/oauth/consent" element={<ConsentPage />} />
               <Route path="/onboarding" element={<MaintainerPage />} />
+              <Route path="/maintainer" element={<MaintainerWorkspaceRoute />} />
+              <Route path="/maintainer/projects/:id" element={<MaintainerWorkspaceRoute />} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route
                 path="/about/protocol"
@@ -1228,8 +1233,9 @@ function ProjectsPage() {
 }
 function ProjectPage() {
   const { id } = useParams();
+  const { user } = useContext(Session);
   const project = useData<Project>(`/projects/${id}`);
-  const tasks = useData<Task[]>("/tasks");
+  const tasks = useData<Task[]>(project.data ? "/tasks?project_id=" + encodeURIComponent(project.data.id) : "/tasks", !!project.data);
   return (
     <DataState query={project}>
       {(p) => (
@@ -1263,6 +1269,11 @@ function ProjectPage() {
               <strong>{formatNumber(p.impact_score)}/100</strong>
             </span>
           </div>
+          {user && (user.id === p.maintainer_id || user.role === "operator") && (
+            <Link className="button secondary" to={`/maintainer/projects/${p.slug}`}>
+              {t("Manage project")} <ArrowRight size={16} />
+            </Link>
+          )}
           {p.status !== "VERIFIED" && (
             <div className="info-strip">
               <ShieldCheck />
@@ -1631,7 +1642,7 @@ function TaskPage() {
                         }}
                       >
                         {action.busy
-                          ? "Confirming…"
+                          ? t("Confirming…")
                           : task.status === "AVAILABLE"
                             ? t("Claim this task")
                             : t("Currently unavailable")}
@@ -2735,7 +2746,7 @@ function CredentialManager({
             "/credentials",
             {
               name: f.get("name"),
-              scopes: ["work:read", "work:write"],
+              scopes: ["work:read", "work:write", ...(f.get("planning") ? ["project:plan"] : [])],
               expires_in_days: Number(f.get("expires")),
             },
             (result) => {
@@ -2762,6 +2773,13 @@ function CredentialManager({
             <option value="90">{t("90 days")}</option>
           </select>
         </FormField>
+        <label className="checkbox-label planning-permission">
+          <input type="checkbox" name="planning" />
+          <span>{t("Allow planning drafts for my projects")}</span>
+        </label>
+        <p className="small-print planning-permission-hint">
+          {t("This optional permission lets your agent read your project plans and propose improvements and task drafts. Approval and publication stay in your browser.")}
+        </p>
         <button className="button" disabled={action.busy}>
           {t("Create access token")} <ArrowRight size={16} />
         </button>
@@ -3274,6 +3292,11 @@ function ConnectPage() {
     </>
   );
 }
+function MaintainerWorkspaceRoute() {
+  const { id } = useParams();
+  const { user } = useContext(Session);
+  return <MaintainerWorkspace key={`${user?.id ?? "guest"}:${id ?? "projects"}`} projectId={id} user={user} />;
+}
 function MaintainerPage() {
   const { user } = useContext(Session);
   const action = useAction();
@@ -3287,6 +3310,11 @@ function MaintainerPage() {
           "Turn a well-scoped backlog item into an agent-ready task, with verification built in.",
         )}
       />
+      {user && (
+        <Link className="button secondary maintainer-entry" to="/maintainer">
+          {t("Manage my projects")} <ArrowRight size={16} />
+        </Link>
+      )}
       <div className="onboarding-grid">
         <section className="onboarding-intro">
           <h2>{t("Help starts with your opt-in.")}</h2>
@@ -3343,6 +3371,10 @@ function MaintainerPage() {
                 )}
               </p>
               <Status value={submitted.status} />
+              <p>{t("Application received. Continue by setting goals and proposing improvements while verification is pending.")}</p>
+              <Link className="button" to={`/maintainer/projects/${submitted.slug}`}>
+                {t("Manage project")} <ArrowRight size={16} />
+              </Link>
               <Link
                 className="button secondary"
                 to={`/projects/${submitted.slug}`}

@@ -9,7 +9,7 @@ from fastapi import HTTPException
 from mcp.server.auth.provider import AccessToken, AuthorizationCode, AuthorizeError, RefreshToken, RegistrationError, TokenError
 from mcp.shared.auth import OAuthClientInformationFull, OAuthToken
 from sqlalchemy import select, update
-from .auth import SCOPES
+from .auth import DEFAULT_SCOPES, SCOPES
 from .config import settings
 from .db import SessionLocal
 from .models import ApiCredential, OAuthClient, OAuthGrant, User
@@ -82,9 +82,9 @@ class PostgresOAuthProvider:
             raise AuthorizeError("invalid_request", "S256 PKCE challenge required")
         values = params.model_dump(mode="json")
         values["resource"] = settings.public_url + "/mcp"
-        values["scopes"] = values.get("scopes") or SCOPES.copy()
+        values["scopes"] = values.get("scopes") or DEFAULT_SCOPES.copy()
         if not set(values["scopes"]).issubset(SCOPES) or "work:read" not in values["scopes"]:
-            raise AuthorizeError("invalid_scope", "work:read and optional work:write are supported")
+            raise AuthorizeError("invalid_scope", "work:read and optional work:write or project:plan are supported")
         def operation(db):
             grant = OAuthGrant(client_id=client.client_id, params=values, expires_at=now(db) + timedelta(minutes=10))
             db.add(grant)

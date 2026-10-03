@@ -92,6 +92,10 @@ def create_governance_router(database, required_user):
         s.reap_task(db, task, s.now(db))
         if task.status not in {"DRAFT", "AVAILABLE"} or db.scalar(select(Submission.id).where(Submission.task_id == task.id)):
             s.fail(409, "Only unclaimed work without a canonical submission can be edited")
+        if task.improvement_id:
+            from .maintainer_planning import contract_locked
+            if contract_locked(db, task):
+                s.fail(409, "Acquired task contracts cannot be changed")
         values = body.model_dump(exclude_none=True, exclude={"reason"})
         if not values:
             s.fail(422, "No task changes supplied")
@@ -104,6 +108,11 @@ def create_governance_router(database, required_user):
             s.fail(422, "Model tier is below the minimum for this risk")
         for key, value in values.items():
             setattr(task, key, value)
+        if task.improvement_id:
+            from .maintainer_planning import check_dispatch, validate_contract
+            validate_contract(task)
+            if task.status == "AVAILABLE":
+                check_dispatch(db, task)
         task.version += 1
         audit(db, user, "task.edited", task.id, body.reason)
         s.event(db, "work.updated", task.id, "Operator updated the unclaimed work contract", user.id)

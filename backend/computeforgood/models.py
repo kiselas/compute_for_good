@@ -104,6 +104,7 @@ class Task(Base):
     __tablename__ = "tasks"
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
     project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    improvement_id: Mapped[str | None] = mapped_column(ForeignKey("improvements.id"), nullable=True, index=True)
     title: Mapped[str] = mapped_column(String(300))
     description: Mapped[str] = mapped_column(Text, default="")
     difficulty: Mapped[str] = mapped_column(String(20), default="EASY")
@@ -265,4 +266,47 @@ class OperatorAction(Base):
     action: Mapped[str] = mapped_column(String(100))
     target_id: Mapped[str] = mapped_column(String(64))
     reason: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ProjectGoal(Base):
+    __tablename__ = "project_goals"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    description: Mapped[str] = mapped_column(Text, default="")
+    priority: Mapped[int] = mapped_column(Integer, default=3)
+    status: Mapped[str] = mapped_column(String(30), default="ACTIVE")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (CheckConstraint("priority BETWEEN 1 AND 5"), CheckConstraint("status IN ('ACTIVE','PAUSED','COMPLETED')"))
+
+
+class Improvement(Base):
+    __tablename__ = "improvements"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    goal_id: Mapped[str | None] = mapped_column(ForeignKey("project_goals.id"), nullable=True, index=True)
+    title: Mapped[str] = mapped_column(String(300))
+    problem: Mapped[str] = mapped_column(Text)
+    outcome: Mapped[str] = mapped_column(Text)
+    acceptance_criteria: Mapped[list] = mapped_column(JSON, default=list)
+    in_scope: Mapped[str] = mapped_column(Text, default="")
+    out_of_scope: Mapped[str] = mapped_column(Text, default="")
+    kind: Mapped[str] = mapped_column(String(30), default="FEATURE")
+    priority: Mapped[int] = mapped_column(Integer, default=3)
+    status: Mapped[str] = mapped_column(String(30), default="PROPOSED")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (CheckConstraint("priority BETWEEN 1 AND 5"), CheckConstraint("kind IN ('FEATURE','BUG','DOCS','TESTS','PERFORMANCE')"), CheckConstraint("status IN ('PROPOSED','APPROVED','IN_PROGRESS','ACCEPTANCE','DONE','REJECTED')"))
+
+
+class PlanningAction(Base):
+    __tablename__ = "planning_actions"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    action: Mapped[str] = mapped_column(String(100))
+    target_id: Mapped[str] = mapped_column(String(64))
+    details: Mapped[dict] = mapped_column(JSON, default=dict)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

@@ -24,7 +24,7 @@ for (const locale of ["ru", "zh-CN"]) {
 }
 
 // A new hard-coded JSX label or a missing literal key should fail verification.
-for (const file of ["App.tsx", "LanguageSwitcher.tsx", "i18n.ts"]) {
+for (const file of fs.readdirSync(path.join(root, "src")).filter(file => /\.tsx?$/.test(file))) {
   const source = ts.createSourceFile(file, fs.readFileSync(path.join(root, "src", file), "utf8"), ts.ScriptTarget.Latest, true, file.endsWith("tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   const visit = node => {
     if (ts.isCallExpression(node) && ts.isIdentifier(node.expression) && ["formatNumber", "formatDate"].includes(node.expression.text)) {

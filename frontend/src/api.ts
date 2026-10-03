@@ -33,6 +33,7 @@ export interface Project {
   readiness_score: number;
   is_demo: boolean;
   required_checks?: string[];
+  maintainer_id?: string | null;
 }
 export interface Lease {
   id: string;
@@ -58,6 +59,9 @@ export interface Task {
   verification_commands: string[];
   active_lease?: Lease | null;
   is_demo: boolean;
+  version?: number;
+  improvement_id?: string | null;
+  contract_locked?: boolean;
 }
 export interface Finding {
   severity: string;

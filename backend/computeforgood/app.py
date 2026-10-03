@@ -32,7 +32,7 @@ def optional_user(request: Request, authorization: str | None = Header(default=N
     if scheme.lower() != "bearer":
         raise HTTPException(401, "Bearer token required")
     user = s.authenticate(db, token)
-    required = "work:read" if request.method in {"GET", "HEAD", "OPTIONS"} else "work:write"
+    required = "project:plan" if request.url.path.startswith("/api/maintainer/") and not user.credential_is_demo else "work:read" if request.method in {"GET", "HEAD", "OPTIONS"} else "work:write"
     if required not in user.credential_scopes:
         raise HTTPException(403, "Credential scope does not permit this operation")
     # Agent tokens coordinate work; browser operator authority is a separate
@@ -152,6 +152,8 @@ def project(project_id: str, db=Depends(database, scope="function")):
 @api.get("/api/tasks")
 def tasks(project_id: str | None = None, risk: str | None = None, status: str | None = None, search: str | None = None, user=Depends(optional_user), db=Depends(database, scope="function")):
     query = select(Task).order_by(Task.id)
+    from .maintainer_planning import task_visibility_condition
+    query = query.where(task_visibility_condition(user))
     if not settings.demo_mode:
         query = query.where(Task.is_demo.is_(False))
     if project_id:
@@ -168,7 +170,8 @@ def tasks(project_id: str | None = None, risk: str | None = None, status: str | 
 @api.get("/api/tasks/{task_id}")
 def task(task_id: str, user=Depends(optional_user), db=Depends(database, scope="function")):
     row = s.get_task(db, task_id)
-    if row.is_demo and not settings.demo_mode:
+    from .maintainer_planning import can_read_task
+    if row.is_demo and not settings.demo_mode or not can_read_task(db, row, user):
         raise HTTPException(404, "Task not found")
     return s.task_dto(db, row, user)
 
@@ -369,18 +372,20 @@ from mcp.server.auth.routes import create_auth_routes, create_protected_resource
 from mcp.server.auth.settings import ClientRegistrationOptions, RevocationOptions
 from pydantic import AnyHttpUrl
 from .oauth_provider import provider
-api.router.routes.extend(create_auth_routes(provider=provider, issuer_url=AnyHttpUrl(settings.public_url), client_registration_options=ClientRegistrationOptions(enabled=True, valid_scopes=auth.SCOPES, default_scopes=auth.SCOPES), revocation_options=RevocationOptions(enabled=True)))
+api.router.routes.extend(create_auth_routes(provider=provider, issuer_url=AnyHttpUrl(settings.public_url), client_registration_options=ClientRegistrationOptions(enabled=True, valid_scopes=auth.SCOPES, default_scopes=auth.DEFAULT_SCOPES), revocation_options=RevocationOptions(enabled=True)))
 api.router.routes.extend(create_protected_resource_routes(resource_url=AnyHttpUrl(settings.public_url + "/mcp"), authorization_servers=[AnyHttpUrl(settings.public_url)], scopes_supported=auth.SCOPES, resource_name="ComputeForGood"))
 from .review_workflow import create_router as create_review_router
 from .project_gateway import create_project_router
 from .github_checks import create_integration_router
 from .operations import create_operations_router
 from .governance import create_governance_router
+from .maintainer_planning import create_planning_router
 api.include_router(create_review_router(database, required_user))
 api.include_router(create_project_router(database, required_user))
 api.include_router(create_integration_router(database, required_user))
 api.include_router(create_operations_router(database, required_user))
 api.include_router(create_governance_router(database, required_user))
+api.include_router(create_planning_router(database, required_user))
 
 # MCP adapter is provided independently; no tool is advertised until loaded.
 try:
