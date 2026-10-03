@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from . import services as s
-from .models import BrowserSession, Lease, OperatorAction, Permit, Project, ReviewLease, ReviewWorkItem, Submission, Task, User
-from .review_workflow import close_review_work
+from .models import BrowserSession, Lease, OperatorAction, Permit, Project, Review, ReviewLease, ReviewWorkItem, Submission, Task, User
+from .review_workflow import close_review_work, ensure_review_work
 from .schemas import Risk, Tier
 
 
@@ -175,6 +175,7 @@ def create_governance_router(database, required_user):
             task_ids = set(db.scalars(select(Lease.task_id).where(Lease.user_id == target.id, Lease.status == "ACTIVE")).all())
             review_leases = db.scalars(select(ReviewLease).where(ReviewLease.reviewer_id == target.id, ReviewLease.status == "ACTIVE")).all()
             submission_ids = [lease.submission_id for lease in review_leases]
+            submission_ids += list(db.scalars(select(Review.submission_id).where(Review.reviewer_id == target.id)).all())
             task_ids.update(db.scalars(select(Submission.task_id).where(Submission.id.in_(submission_ids))).all())
             for task_id in sorted(task_ids):
                 task = s.get_task(db, task_id, True)
@@ -184,6 +185,17 @@ def create_governance_router(database, required_user):
             for lease in db.scalars(select(ReviewLease).where(ReviewLease.reviewer_id == target.id, ReviewLease.status == "ACTIVE").with_for_update().execution_options(populate_existing=True)).all():
                 lease.status = "REVOKED"
                 db.get(ReviewWorkItem, lease.work_item_id).status = "AVAILABLE"
+            db.flush()
+            for submission in db.scalars(select(Submission).where(Submission.id.in_(submission_ids))
+                                         .order_by(Submission.id).with_for_update()).all():
+                task = s.get_task(db, submission.task_id)
+                if (submission.status not in {"MERGED", "CLOSED", "INVALID"}
+                        and task.status not in {"INVALID", "CLOSED", "MERGED", "SUSPENDED", "CANCELLED"}):
+                    ensure_review_work(db, submission)
+                    q = s.quorum(db, submission)
+                    submission.status = ("CHANGES_NEEDED" if q["blocked"] else "AWAITING_MAINTAINER"
+                                         if q["passed"] and submission.checks_passed else "REVIEWING")
+                    task.status = submission.status
             for session in db.scalars(select(BrowserSession).where(BrowserSession.user_id == target.id, BrowserSession.revoked_at.is_(None))).all():
                 session.revoked_at = s.now(db)
         audit(db, user, "user.suspended" if body.suspended else "user.reinstated", target.id, body.reason)

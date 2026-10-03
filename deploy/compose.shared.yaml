@@ -1,32 +1,37 @@
-name: cfg-production
+# Dedicated project on the shared VPN host. Only cfg-gateway joins edge_net.
+name: compute-for-good
 x-service: &service
   restart: unless-stopped
   logging:
     driver: json-file
-    options:
-      max-size: 10m
-      max-file: '3'
+    options: {max-size: 10m, max-file: '3'}
+  networks: [internal]
+  security_opt: [no-new-privileges:true]
 x-env: &env
   DEMO_MODE: 'false'
-  DATABASE_URL: postgresql+psycopg://cfg:${POSTGRES_PASSWORD:?Generate deployment secrets first}@postgres:5432/cfg
+  DATABASE_URL: postgresql+psycopg://cfg:${POSTGRES_PASSWORD:?Private database password required}@postgres:5432/cfg
   REDIS_URL: redis://redis:6379/0
-  PUBLIC_URL: ${PUBLIC_URL:?Set the public HTTPS origin}
-  FRONTEND_URL: ${PUBLIC_URL:?Set the public HTTPS origin}
-  CORS_ORIGINS: ${PUBLIC_URL:?Set the public HTTPS origin}
-  SECURE_COOKIES: ${SECURE_COOKIES:-true}
+  PUBLIC_URL: https://compute-for-good.tech
+  FRONTEND_URL: https://compute-for-good.tech
+  CORS_ORIGINS: https://compute-for-good.tech
+  SECURE_COOKIES: 'true'
   REGISTRATION_ENABLED: ${REGISTRATION_ENABLED:-true}
-  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?Generate deployment secrets first}
+  GITHUB_WEBHOOK_SECRET: ${GITHUB_WEBHOOK_SECRET:?Private webhook secret required}
   GITHUB_TOKEN: ${GITHUB_TOKEN:-}
   GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
   GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
-  OAUTH_SECRET_KEY: ${OAUTH_SECRET_KEY:?Generate deployment OAuth encryption key first}
+  OAUTH_SECRET_KEY: ${OAUTH_SECRET_KEY:?Private encryption key required}
 services:
   postgres:
     <<: *service
     image: postgres:17-alpine
+    mem_limit: 512m
+    cpus: 1.0
+    pids_limit: 128
+    command: [postgres, -c, shared_buffers=64MB, -c, max_connections=60]
     environment:
       POSTGRES_USER: cfg
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Generate deployment secrets first}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: cfg
     volumes: [cfg-postgres:/var/lib/postgresql/data]
     healthcheck:
@@ -37,7 +42,10 @@ services:
   redis:
     <<: *service
     image: redis:7-alpine
-    command: [redis-server, --appendonly, 'yes', --maxmemory, 256mb, --maxmemory-policy, noeviction]
+    mem_limit: 128m
+    cpus: 0.3
+    pids_limit: 64
+    command: [redis-server, --appendonly, 'yes', --maxmemory, 64mb, --maxmemory-policy, noeviction]
     volumes: [cfg-redis:/data]
     healthcheck:
       test: [CMD, redis-cli, ping]
@@ -46,7 +54,10 @@ services:
       retries: 20
   backend:
     <<: *service
-    build: ./backend
+    image: ghcr.io/kiselas/compute-for-good-backend:${RELEASE_SHA:?Exact release SHA required}
+    mem_limit: 512m
+    cpus: 1.5
+    pids_limit: 256
     environment: *env
     command: [sh, -c, 'alembic upgrade head && uvicorn computeforgood.app:app --host 0.0.0.0 --port 8000 --proxy-headers --forwarded-allow-ips=*']
     depends_on:
@@ -60,32 +71,43 @@ services:
       start_period: 30s
   worker:
     <<: *service
-    build: ./backend
+    image: ghcr.io/kiselas/compute-for-good-backend:${RELEASE_SHA}
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
     environment:
       <<: *env
       WORKER_MODE: coordination
     command: [python, -m, computeforgood.worker]
+    depends_on:
+      backend: {condition: service_healthy}
     healthcheck: &worker-health
       test: [CMD, python, -m, computeforgood.worker_health]
       interval: 15s
       timeout: 5s
       start_period: 30s
       retries: 3
-    depends_on:
-      backend: {condition: service_healthy}
   integration_worker:
     <<: *service
-    build: ./backend
+    image: ghcr.io/kiselas/compute-for-good-backend:${RELEASE_SHA}
+    mem_limit: 128m
+    cpus: 0.5
+    pids_limit: 64
     environment:
       <<: *env
       WORKER_MODE: integrations
     command: [python, -m, computeforgood.worker]
-    healthcheck: *worker-health
     depends_on:
       backend: {condition: service_healthy}
+    healthcheck: *worker-health
   frontend:
     <<: *service
-    build: ./frontend
+    image: ghcr.io/kiselas/compute-for-good-frontend:${RELEASE_SHA}
+    mem_limit: 64m
+    cpus: 0.3
+    pids_limit: 64
+    # Private pre-DNS inspection through an authorized SSH tunnel.
+    ports: ['127.0.0.1:5181:80']
     depends_on:
       backend: {condition: service_healthy}
     healthcheck:
@@ -93,18 +115,29 @@ services:
       interval: 10s
       timeout: 3s
       retries: 10
-  edge:
+  cfg-gateway:
     <<: *service
-    image: caddy:2-alpine
+    image: caddy:2.11.4-alpine
+    mem_limit: 96m
+    cpus: 0.3
+    pids_limit: 64
     environment:
-      PUBLIC_HOST: ${PUBLIC_HOST:?Set the public hostname}
-    ports: ['80:80', '443:443', '443:443/udp']
+      EDGE_PROXY_CIDR: ${EDGE_PROXY_CIDR:?Exact trusted edge source required}
+    networks:
+      internal:
+      edge:
+        aliases: [cfg-gateway]
     volumes:
-      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./Caddyfile.shared:/etc/caddy/Caddyfile:ro
       - cfg-caddy-data:/data
       - cfg-caddy-config:/config
     depends_on:
       frontend: {condition: service_healthy}
+networks:
+  internal:
+  edge:
+    external: true
+    name: edge_net
 volumes:
   cfg-postgres:
   cfg-redis:

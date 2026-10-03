@@ -161,7 +161,7 @@ def tasks(project_id: str | None = None, risk: str | None = None, status: str | 
     if risk:
         query = query.where(Task.risk == risk.upper())
     if status:
-        query = query.where(Task.status == status.upper())
+        query = query.where(s.visible_task_status(user) == status.upper())
     if search:
         query = query.where(or_(Task.title.ilike("%" + search + "%"), Task.description.ilike("%" + search + "%")))
     return [s.task_dto(db, t, user) for t in db.scalars(query.limit(200))]

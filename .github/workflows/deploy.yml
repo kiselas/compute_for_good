@@ -1,0 +1,139 @@
+name: Deploy production
+
+on:
+  workflow_run:
+    workflows: ['Launch verification']
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: 'Full 40-character current main SHA with successful push CI'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: cfg-production-deploy
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.repository == 'kiselas/compute_for_good' &&
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' ||
+      github.event_name == 'workflow_run' &&
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      actions: read
+      packages: write
+    steps:
+      - name: Verify exact main SHA and successful CI
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ github.event.workflow_run.head_sha || inputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'A full lowercase commit SHA is required'; exit 1; }
+          head=$(gh api "repos/$REPOSITORY/branches/main" --jq '.commit.sha')
+          [ "$CANDIDATE_SHA" = "$head" ] || { echo 'Refusing stale or non-main deployment'; exit 1; }
+          gh api -X GET "repos/$REPOSITORY/actions/workflows/ci.yml/runs" \
+            -f head_sha="$CANDIDATE_SHA" -f branch=main -f event=push -f status=success -f per_page=100 \
+            --jq '.workflow_runs' > "$RUNNER_TEMP/ci-runs.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          runs = json.loads((Path(os.environ['RUNNER_TEMP']) / 'ci-runs.json').read_text())
+          assert any(run['head_sha'] == os.environ['CANDIDATE_SHA'] and run['head_branch'] == 'main'
+                     and run['event'] == 'push' and run['conclusion'] == 'success'
+                     and run['head_repository']['full_name'] == os.environ['REPOSITORY']
+                     for run in runs), 'Successful main push CI for this exact commit is required'
+          PY
+          echo "sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Preserve images already published for this commit
+        id: existing
+        env:
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          for component in backend frontend; do
+            if docker buildx imagetools inspect "ghcr.io/kiselas/compute-for-good-$component:$RELEASE_SHA" > /dev/null 2>&1; then
+              echo "$component=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "$component=false" >> "$GITHUB_OUTPUT"
+            fi
+          done
+      - name: Publish backend and worker image
+        if: steps.existing.outputs.backend != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: backend
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/kiselas/compute-for-good-backend:${{ steps.release.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/kiselas/compute_for_good
+            org.opencontainers.image.revision=${{ steps.release.outputs.sha }}
+          cache-from: type=gha,scope=cfg-backend
+          cache-to: type=gha,mode=max,scope=cfg-backend
+      - name: Publish frontend image
+        if: steps.existing.outputs.frontend != 'true'
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: frontend
+          push: true
+          platforms: linux/amd64
+          tags: ghcr.io/kiselas/compute-for-good-frontend:${{ steps.release.outputs.sha }}
+          labels: |
+            org.opencontainers.image.source=https://github.com/kiselas/compute_for_good
+            org.opencontainers.image.revision=${{ steps.release.outputs.sha }}
+          cache-from: type=gha,scope=cfg-frontend
+          cache-to: type=gha,mode=max,scope=cfg-frontend
+      - name: Deploy the verified release using restricted SSH
+        env:
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          DEPLOY_HOST: ${{ secrets.CFG_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.CFG_DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.CFG_DEPLOY_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.CFG_DEPLOY_KNOWN_HOSTS }}
+          GH_TOKEN: ${{ github.token }}
+          GH_ACTOR: ${{ github.actor }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          [ -n "$DEPLOY_HOST" ] && [ -n "$DEPLOY_USER" ] && [ -n "$DEPLOY_KEY" ] && [ -n "$DEPLOY_KNOWN_HOSTS" ] || { echo 'Deployment SSH secrets are missing'; exit 1; }
+          [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]*$ ]] && [[ "$DEPLOY_USER" =~ ^[a-z_][a-z0-9_-]*$ ]] || { echo 'Invalid SSH destination'; exit 1; }
+          head=$(gh api "repos/$REPOSITORY/branches/main" --jq '.commit.sha')
+          [ "$RELEASE_SHA" = "$head" ] || { echo 'Main moved while building; let the newer CI deploy'; exit 1; }
+          install -m 700 -d "$RUNNER_TEMP/cfg-ssh"
+          trap 'rm -rf "$RUNNER_TEMP/cfg-ssh"' EXIT
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/cfg-ssh/key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$RUNNER_TEMP/cfg-ssh/known_hosts"
+          chmod 600 "$RUNNER_TEMP/cfg-ssh/key" "$RUNNER_TEMP/cfg-ssh/known_hosts"
+          printf '%s\n%s\n' "$GH_ACTOR" "$GH_TOKEN" | ssh -i "$RUNNER_TEMP/cfg-ssh/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+            -o UserKnownHostsFile="$RUNNER_TEMP/cfg-ssh/known_hosts" \
+            -o ConnectTimeout=20 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "/opt/compute-for-good/bin/deploy-release $RELEASE_SHA"
+          echo "Deployed $RELEASE_SHA" >> "$GITHUB_STEP_SUMMARY"

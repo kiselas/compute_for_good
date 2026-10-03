@@ -42,10 +42,10 @@ def ensure_review_work(db, submission):
     """Create the risk-policy slots once; callers must already hold the task lock."""
     task = s.get_task(db, submission.task_id)
     project = db.get(Project, task.project_id)
-    existing = set(db.scalars(select(ReviewWorkItem.slot_index).where(
+    existing = db.scalars(select(ReviewWorkItem).where(
         ReviewWorkItem.submission_id == submission.id,
         ReviewWorkItem.head_sha == submission.head_sha,
-    )).all())
+    )).all()
     if (submission.status not in {'MERGED', 'CLOSED', 'INVALID'}
             and task.status not in {'INVALID', 'SUSPENDED', 'CANCELLED'}
             and project is not None and project.status == 'VERIFIED'):
@@ -56,10 +56,19 @@ def ensure_review_work(db, submission):
             ReviewWorkItem.head_sha == submission.head_sha,
             ReviewWorkItem.status == 'STALE',
         ).values(status='AVAILABLE'))
-        for index in range(s.QUORUM[task.risk]):
-            if index not in existing:
-                db.add(ReviewWorkItem(submission_id=submission.id, head_sha=submission.head_sha,
-                                      slot_index=index, status='AVAILABLE'))
+        # Keep completed history immutable, but replace reviews that no longer
+        # qualify after suspension. Replacement slots have fresh indices on this SHA.
+        reviewed = db.scalars(select(Review).where(
+            Review.submission_id == submission.id, Review.head_sha == submission.head_sha,
+        )).all()
+        eligible = sum(not db.get(User, review.reviewer_id).suspended
+                       and s.TIERS.get(review.model_tier, -1) >= s.TIERS[s.MIN_TIER[task.risk]]
+                       for review in reviewed)
+        unfinished = sum(item.status in {'AVAILABLE', 'CLAIMED', 'STALE'} for item in existing)
+        start = max((item.slot_index for item in existing), default=-1) + 1
+        for index in range(start, start + max(0, s.QUORUM[task.risk] - eligible - unfinished)):
+            db.add(ReviewWorkItem(submission_id=submission.id, head_sha=submission.head_sha,
+                                  slot_index=index, status='AVAILABLE'))
     db.flush()
 
 
@@ -306,6 +315,8 @@ def resubmit(db, submission_id, head_sha, summary, user):
     submission.status = 'REVIEWING'
     task.status = 'REVIEWING'
     head_changed(db, submission)
+    from .github_checks import enqueue_reconciliation
+    enqueue_reconciliation(db, submission)
     s.event(db, 'submission.updated', submission.id,
             'Canonical PR revised; current-head independent reviews are required', user.id)
     return s.submission_dto(db, submission, user, include_reviews=True)

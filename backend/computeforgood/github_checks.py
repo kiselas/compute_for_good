@@ -1,6 +1,7 @@
 """Fail-closed CI reconciliation from GitHub's current state, never webhook order."""
 from urllib.parse import urlparse
 import re
+import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
@@ -33,6 +34,29 @@ def current_pr(submission, project):
     return api_json("/repos" + path.replace("/pull/", "/pulls/"))
 
 
+def enqueue_reconciliation(db, submission):
+    """Persist initial/revised-head CI reads in the same transaction as the head.
+
+    This uses the integration queue, including its bounded retry and operator
+    retry policy. A queued old head cannot overwrite a later revision.
+    """
+    if not submission.is_demo:
+        db.add(WebhookDelivery(id="reconcile-" + uuid.uuid4().hex,
+                              event_type="reconcile_submission",
+                              payload={"submission_id": submission.id, "head_sha": submission.head_sha}))
+
+
+def process_reconciliation(db, delivery):
+    candidate = db.get(Submission, delivery.payload.get("submission_id"))
+    if candidate is None:
+        return
+    s.get_task(db, candidate.task_id, True)
+    row = db.scalar(select(Submission).where(Submission.id == candidate.id)
+                    .with_for_update().execution_options(populate_existing=True))
+    if row.head_sha == delivery.payload.get("head_sha") and row.status not in {"MERGED", "CLOSED", "INVALID"}:
+        reconcile(db, row)
+
+
 def reconcile(db, submission):
     task = db.get(Task, submission.task_id)
     project = db.get(Project, task.project_id)
@@ -59,10 +83,20 @@ def reconcile(db, submission):
             break
     else:
         raise ValueError("Too many check runs to establish a complete CI result")
-    statuses = api_json(prefix + "/status?per_page=100").get("statuses", [])
-    for status in statuses:
-        key = "status:" + status.get("context", "")
-        observed[key] = status.get("state") == "success"
+    status_count = 0
+    for page in range(1, 11):
+        data = api_json(prefix + f"/status?per_page=100&page={page}")
+        statuses = data.get("statuses", [])
+        status_count += len(statuses)
+        for status in statuses:
+            key = "status:" + status.get("context", "")
+            observed[key] = observed.get(key, True) and status.get("state") == "success"
+        if len(statuses) < 100:
+            if status_count < data.get("total_count", status_count):
+                raise ValueError("Incomplete commit statuses; CI cannot be established")
+            break
+    else:
+        raise ValueError("Too many commit statuses to establish a complete CI result")
     def passed(name):
         if name.startswith(("check:", "status:")):
             return observed.get(name, False)

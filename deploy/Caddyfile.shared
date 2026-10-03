@@ -1,0 +1,38 @@
+{
+    servers :443 {
+        protocols h1 h2
+        listener_wrappers {
+            proxy_protocol {
+                timeout 2s
+                allow {$EDGE_PROXY_CIDR}
+                fallback_policy reject
+            }
+            tls
+        }
+    }
+}
+
+(cfg_headers) {
+    header {
+        X-Content-Type-Options nosniff
+        Referrer-Policy strict-origin-when-cross-origin
+        X-Frame-Options DENY
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
+    }
+}
+
+compute-for-good.tech {
+    import cfg_headers
+    encode zstd gzip
+    reverse_proxy frontend:80
+}
+
+www.compute-for-good.tech {
+    redir https://compute-for-good.tech{uri} permanent
+}
+
+# Explicit HTTP sites keep ACME/redirect traffic in Caddy's managed listener.
+http://compute-for-good.tech, http://www.compute-for-good.tech {
+    redir https://compute-for-good.tech{uri} permanent
+}

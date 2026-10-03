@@ -10,7 +10,7 @@ import secrets
 from urllib.parse import urlparse
 import httpx
 from fastapi import HTTPException
-from sqlalchemy import func, select, update
+from sqlalchemy import and_, case, func, or_, select, update
 from sqlalchemy.orm import object_session
 from .config import settings
 from .models import ApiCredential, Checkpoint, Event, FindingResolution, ImpactCredit, Lease, Permit, Project, Review, Submission, Task, User, WebhookDelivery
@@ -97,6 +97,28 @@ def task_dto(db, row, user=None):
         if lease:
             result["active_lease"] = lease_dto(lease)
     return result
+
+
+def visible_task_status(user):
+    """Use the same blind state for SQL filtering as for the returned DTO."""
+    hidden = Task.status.in_(["CHANGES_NEEDED", "AWAITING_MAINTAINER", "REVIEW_PASSED"])
+    visible = False
+    if user:
+        if user.role == "operator":
+            return Task.status
+        own_submission = select(Submission.id).where(
+            Submission.task_id == Task.id, Submission.author_id == user.id,
+        ).exists()
+        own_review = select(Review.id).join(Submission, Review.submission_id == Submission.id).where(
+            Submission.task_id == Task.id, Review.reviewer_id == user.id,
+            Review.head_sha == Submission.head_sha,
+        ).exists()
+        visible = or_(own_submission, own_review)
+        if not hasattr(user, "credential_scopes") or getattr(user, "credential_is_demo", False):
+            owner = select(Project.id).where(Project.id == Task.project_id,
+                                             Project.status == "VERIFIED", Project.maintainer_id == user.id).exists()
+            visible = or_(visible, owner)
+    return case((and_(hidden, ~visible if visible is not False else True), "REVIEWING"), else_=Task.status)
 
 
 def event_dto(row):
@@ -344,6 +366,8 @@ def register(db, task_id, body, user):
     db.flush()
     from .review_workflow import ensure_review_work
     ensure_review_work(db, row)
+    from .github_checks import enqueue_reconciliation
+    enqueue_reconciliation(db, row)
     event(db, "submission.registered", row.id, "Submission registered; independent reviews are available", user.id)
     return submission_dto(db, row)
 
@@ -398,6 +422,9 @@ def process_delivery(db, delivery):
     if delivery.status == "DONE":
         return
     payload = delivery.payload
+    if delivery.event_type == "reconcile_submission":
+        from .github_checks import process_reconciliation
+        process_reconciliation(db, delivery)
     if delivery.event_type in {"check_run", "check_suite", "status"}:
         from .github_checks import process_checks_event
         process_checks_event(db, delivery)
@@ -420,7 +447,7 @@ def process_delivery(db, delivery):
                 from .github_checks import current_pr
                 pr = current_pr(row, db.get(Project, task.project_id))
             sha = pr.get("head", {}).get("sha")
-            if payload.get("action") == "synchronize" and sha and sha != row.head_sha:
+            if sha and sha.lower() != row.head_sha.lower():
                 if not re.fullmatch(r"[0-9a-fA-F]{7,64}", sha):
                     fail(422, "Invalid GitHub head SHA")
                 row.head_sha = sha.lower()
@@ -430,11 +457,16 @@ def process_delivery(db, delivery):
                 task.status = "REVIEWING"
                 from .review_workflow import head_changed
                 head_changed(db, row)
+                from .github_checks import enqueue_reconciliation
+                enqueue_reconciliation(db, row)
                 event(db, "submission.updated", row.id, "PR head changed; prior reviews no longer count")
-            if not row.is_demo and row.status not in {"MERGED", "CLOSED", "INVALID"}:
+            closed = (row.is_demo and payload.get("action") == "closed") or (not row.is_demo and pr.get("state") == "closed")
+            # A maintainer's authoritative terminal decision must not be held
+            # hostage by a transient CI endpoint outage.
+            if not row.is_demo and not closed and row.status not in {"MERGED", "CLOSED", "INVALID"}:
                 from .github_checks import reconcile
                 reconcile(db, row)
-            if (row.is_demo and payload.get("action") == "closed") or (not row.is_demo and pr.get("state") == "closed"):
+            if closed:
                 if pr.get("merged"):
                     merge(db, row)
                 else:
