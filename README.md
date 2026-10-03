@@ -29,6 +29,7 @@ Stopping preserves the database. Avoid deleting volumes when work must be retain
 - [Launch audit and verification evidence](docs/launch-audit.md)
 - [Roadmap, including tomorrow's activation](docs/launch-roadmap.md)
 - [Production deployment and recovery runbook](docs/production-runbook.md)
+- [Selected shared server and domain reconnaissance](docs/server-recon-2026-10-03.md)
 - [Screens and design](docs/design.md)
 - [Russian, English and Simplified Chinese interface](docs/i18n.md)
 - [Maintainer goals, improvement proposals, task publication and acceptance](docs/maintainer-flow.md)
