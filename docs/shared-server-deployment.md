@@ -23,13 +23,13 @@ The administrator installs `deploy/ci-dispatch.sh` and `deploy/deploy-release.sh
 
 ## Inspection before DNS
 
-An administrator can forward the private production frontend:
+The host disables SSH TCP forwarding. An administrator can inspect the private production frontend using a command on the server:
 
 ```sh
-ssh -N -L 127.0.0.1:5181:127.0.0.1:5181 nextdish-intl
+ssh nextdish-intl 'curl -fsS http://127.0.0.1:5181/api/ready'
 ```
 
-Open `http://127.0.0.1:5181` and `/api/ready`. This checks the real server's demo-free application. Public login requires the configured HTTPS origin and secure cookies; this HTTP tunnel is not a public launch URL.
+Port 5181 is bound only to the server's loopback interface. Public login requires the configured HTTPS origin and secure cookies. Browser inspection of the public site follows DNS activation; do not weaken the host's forwarding or authentication policy to create a temporary preview.
 
 ## Recovery and launch checks
 
