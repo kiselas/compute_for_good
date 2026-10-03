@@ -2,7 +2,7 @@
 
 The immediate goal is a working public beta: visitors understand the project, create an account, connect an MCP client, reserve eligible work, and submit/review a canonical PR with auditable results. GitHub activation is planned for tomorrow. The owner has selected the domain and host below. Local tests do not establish external availability.
 
-The owner selected `compute-for-good.tech` and the shared former NextDish intl host `185.115.33.169`. Read-only reconnaissance on 2026-10-03 confirmed that VPN, Content Factory and NextDish are all still running there. The stock production edge conflicts with the existing 80/443 listener; a shared-host deployment variant and explicit SNI route are required. DNS currently returns NXDOMAIN. See [the server reconnaissance](server-recon-2026-10-03.md) for the actual routes, capacity and remaining checks.
+The owner selected `compute-for-good.tech` and the shared former NextDish intl host `185.115.33.169`. After the owner stopped NextDish, read-only verification on 2026-10-03 at 14:54 MSK confirmed that VPN and Content Factory remain running and their HTTPS sites respond successfully. About 1.9 GiB RAM is available and 12 GiB disk is free. The stock production edge still conflicts with the VPN's 80/443 listener; a shared-host deployment variant and explicit SNI route are required. DNS currently returns NXDOMAIN. See [the server reconnaissance](server-recon-2026-10-03.md) for the actual routes, capacity and remaining checks.
 
 ## Tonight — implementation and verification
 
