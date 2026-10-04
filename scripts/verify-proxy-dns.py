@@ -20,8 +20,17 @@ parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--project', help='Local Compose project providing built images')
 args = parser.parse_args()
 compose = ['compose'] + (['-p', args.project] if args.project else [])
-frontend_image = docker(*compose, 'images', '-q', 'frontend').splitlines()[0]
-backend_image = docker(*compose, 'images', '-q', 'backend').splitlines()[0]
+def built_image(service):
+    containers = docker(*compose, 'ps', '-q', service).splitlines()
+    assert len(containers) == 1, f'One running local {service} container is required'
+    # A running container can retain a removed OCI manifest ID after a cached
+    # Compose rebuild. Its configured local tag points to the usable new image.
+    image = json.loads(docker('inspect', containers[0]))[0]['Config']['Image']
+    docker('image', 'inspect', image)
+    return image
+
+frontend_image = built_image('frontend')
+backend_image = built_image('backend')
 prefix = 'cfg-dns-' + uuid.uuid4().hex[:10]
 network = prefix + '-net'
 names = [prefix + suffix for suffix in ('-old', '-guard', '-new', '-proxy')]
