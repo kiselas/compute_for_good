@@ -85,6 +85,19 @@ def test_expired_session_and_credential_and_untrusted_origin():
     assert client.get("/api/auth/session").json()["user"] is None
 
 
+def test_session_exposes_only_safe_github_connection_status():
+    client = TestClient(app, base_url="http://localhost:8010")
+    registered, _, _ = account(client)
+    assert registered["user"]["github_connected"] is False
+    user_id = registered["user"]["id"]
+    assert client.get("/api/auth/session").json()["user"]["github_connected"] is False
+    with SessionLocal.begin() as db:
+        db.get(User, user_id).github_id = "test-only-" + secrets.token_hex(12)
+    connected = client.get("/api/auth/session").json()["user"]
+    assert connected["github_connected"] is True
+    assert set(connected) == {"id", "username", "role", "github_connected"}
+
+
 def test_oauth_pkce_redirect_reuse_refresh_and_revoke():
     client = TestClient(app, base_url="http://localhost:8010")
     account(client)

@@ -872,5 +872,10 @@
   "Accept results only after all tasks finish and at least one is merged": "请在所有任务结束且至少一个 PR 已合并后验收结果",
   "Acquired task contracts cannot be changed": "已被领取的任务约定不能修改",
   "Only improvement task drafts can be published": "只能发布关联改进的任务草稿",
-  "Confirming…": "正在确认…"
+  "Confirming…": "正在确认…",
+  "GitHub identity": "GitHub 身份",
+  "GitHub connected": "已连接 GitHub",
+  "Link GitHub to verify that submitted pull requests belong to you.": "连接 GitHub，以验证提交的拉取请求属于您。",
+  "Connect GitHub": "连接 GitHub",
+  "GitHub connection is temporarily unavailable.": "GitHub 连接暂时不可用。"
 }

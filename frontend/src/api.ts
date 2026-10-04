@@ -4,6 +4,7 @@ export interface User {
   id: string;
   username: string;
   role: string;
+  github_connected?: boolean;
   token?: string;
 }
 export interface AuthSession {

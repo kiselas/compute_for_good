@@ -96,7 +96,8 @@ def db_session():
 
 
 def user_dto(user):
-    return {"id": user.id, "username": user.username, "role": user.role}
+    return {"id": user.id, "username": user.username, "role": user.role,
+            "github_connected": bool(user.github_id)}
 
 
 def csrf_token(raw):

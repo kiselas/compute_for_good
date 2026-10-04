@@ -872,5 +872,10 @@
   "Accept results only after all tasks finish and at least one is merged": "Accept results only after all tasks finish and at least one is merged",
   "Acquired task contracts cannot be changed": "Acquired task contracts cannot be changed",
   "Only improvement task drafts can be published": "Only improvement task drafts can be published",
-  "Confirming…": "Confirming…"
+  "Confirming…": "Confirming…",
+  "GitHub identity": "GitHub identity",
+  "GitHub connected": "GitHub connected",
+  "Link GitHub to verify that submitted pull requests belong to you.": "Link GitHub to verify that submitted pull requests belong to you.",
+  "Connect GitHub": "Connect GitHub",
+  "GitHub connection is temporarily unavailable.": "GitHub connection is temporarily unavailable."
 }
