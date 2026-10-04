@@ -85,6 +85,19 @@ def test_expired_session_and_credential_and_untrusted_origin():
     assert client.get("/api/auth/session").json()["user"] is None
 
 
+def test_session_exposes_only_safe_github_connection_status():
+    client = TestClient(app, base_url="http://localhost:8010")
+    registered, _, _ = account(client)
+    assert registered["user"]["github_connected"] is False
+    user_id = registered["user"]["id"]
+    assert client.get("/api/auth/session").json()["user"]["github_connected"] is False
+    with SessionLocal.begin() as db:
+        db.get(User, user_id).github_id = "test-only-" + secrets.token_hex(12)
+    connected = client.get("/api/auth/session").json()["user"]
+    assert connected["github_connected"] is True
+    assert set(connected) == {"id", "username", "role", "github_connected"}
+
+
 def test_oauth_pkce_redirect_reuse_refresh_and_revoke():
     client = TestClient(app, base_url="http://localhost:8010")
     account(client)
@@ -136,6 +149,40 @@ def test_github_oauth_not_configured_and_demo_credentials_disabled():
     assert "resource_metadata=" in unauthorized.headers.get("www-authenticate", "")
     assert "/.well-known/oauth-protected-resource/mcp" in unauthorized.headers.get("www-authenticate", "")
     assert client.get("/api/me", headers={"Authorization": "Bearer cfg-demo-alice"}).status_code == 401
+
+
+@pytest.mark.parametrize("link_existing", [True, False])
+def test_github_callback_returns_to_account_after_linking(monkeypatch, link_existing):
+    from computeforgood import auth
+    from types import SimpleNamespace
+    client = TestClient(app, base_url="http://localhost:8010")
+    registered = account(client)[0] if link_existing else None
+    github_id = "test-oauth-" + secrets.token_hex(12)
+    github_login = "oauth_" + secrets.token_hex(8)
+    monkeypatch.setattr(auth, "settings", SimpleNamespace(
+        **{**vars(settings), "github_client_id": "local-test-client", "github_client_secret": "local-test-secret"}
+    ))
+    start = client.get("/api/auth/github/start", follow_redirects=False)
+    assert start.status_code == 302
+    state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+    assert client.cookies.get("cfg_github_state")
+    monkeypatch.setattr(auth.httpx, "post", lambda *args, **kwargs: SimpleNamespace(
+        raise_for_status=lambda: None, json=lambda: {"access_token": "local-test-only-token"}
+    ))
+    monkeypatch.setattr(auth.httpx, "get", lambda *args, **kwargs: SimpleNamespace(
+        raise_for_status=lambda: None, json=lambda: {"id": github_id, "login": github_login}
+    ))
+    callback = client.get("/api/auth/github/callback", params={"state": state, "code": "local-test-code"}, follow_redirects=False)
+    assert callback.status_code == 302
+    assert callback.headers["location"] == settings.frontend_url + ("/account" if link_existing else "/connect")
+    assert not client.cookies.get("cfg_github_state")
+    session = client.get("/api/auth/session").json()["user"]
+    assert session["github_connected"] is True
+    if registered:
+        assert session["id"] == registered["user"]["id"]
+    with SessionLocal() as db:
+        assert db.get(User, session["id"]).github_id == github_id
+    assert client.get("/api/auth/github/callback", params={"state": state, "code": "local-test-code"}).status_code == 400
 
 
 def grant(client, client_id, redirect):

@@ -872,5 +872,10 @@
   "Accept results only after all tasks finish and at least one is merged": "Примите результат после завершения всех задач и хотя бы одного объединённого PR",
   "Acquired task contracts cannot be changed": "Условия уже взятой задачи нельзя изменять",
   "Only improvement task drafts can be published": "Публиковать можно только черновики задач, связанные с улучшением",
-  "Confirming…": "Подтверждаем…"
+  "Confirming…": "Подтверждаем…",
+  "GitHub identity": "Аккаунт GitHub",
+  "GitHub connected": "GitHub подключён",
+  "Link GitHub to verify that submitted pull requests belong to you.": "Подключите GitHub, чтобы подтвердить авторство отправленных pull request.",
+  "Connect GitHub": "Подключить GitHub",
+  "GitHub connection is temporarily unavailable.": "Подключение GitHub временно недоступно."
 }

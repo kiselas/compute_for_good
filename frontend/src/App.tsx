@@ -2871,7 +2871,7 @@ function CredentialManager({
   );
 }
 function AccountPage() {
-  const { user, demo } = useContext(Session);
+  const { user, demo, githubAvailable } = useContext(Session);
   const action = useAction();
   const client = useQueryClient();
   const navigate = useNavigate();
@@ -2926,6 +2926,30 @@ function AccountPage() {
           {t("View public profile")} <ArrowUpRight size={15} />
         </Link>
       </div>
+      {!demo && (
+        <section className="panel">
+          <div className="panel-heading">
+            <Code2 size={20} />
+            <h2>{t("GitHub identity")}</h2>
+          </div>
+          {user.github_connected ? (
+            <Badge tone="green">{t("GitHub connected")}</Badge>
+          ) : (
+            <>
+              <p className="muted">
+                {t("Link GitHub to verify that submitted pull requests belong to you.")}
+              </p>
+              {githubAvailable ? (
+                <a className="button secondary" href="/api/auth/github/start">
+                  {t("Connect GitHub")} <ArrowUpRight size={16} />
+                </a>
+              ) : (
+                <p className="small-print">{t("GitHub connection is temporarily unavailable.")}</p>
+              )}
+            </>
+          )}
+        </section>
+      )}
       <DataState query={profile}>
         {(p) => (
           <>
