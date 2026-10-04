@@ -70,3 +70,25 @@ For this shared host, use the existing SSH alias; the tool never transfers a Git
 The command creates the private key once, verifies PostgreSQL archive magic, encrypts, and checks a decrypted round trip and hashes. Preserve a separate secure copy of the key. To verify recovery, decrypt with Fernet in memory and pipe to `pg_restore --exit-on-error --no-owner` against a newly created isolated database; compare migration revision/counts, then remove only that scratch database. Never restore directly over production during a routine verification.
 
 Manual encrypted snapshot and restore have been checked; a recurring off-host backup schedule and key recovery location are still operator decisions. scripts/backup.ps1 uses unique remote/local filenames and checks the copied checksum; -Project can target an explicit local QA Compose project.
+
+## Repeated release checks and recovery
+
+The administrator installs the reviewed `deploy/deploy-release.sh` and `scripts/check-release.py` as root-owned `/opt/compute-for-good/bin/deploy-release` and `check-release.py`. The restricted CI key cannot update these tools. The gate checks actual application image tags, healthy containers and worker heartbeats after each container's start, private/public readiness, public HTTP 200 and security headers without following redirects. A free-disk preflight refuses release work below 1 GiB; inspect only this project's retention before deciding cleanup on the shared Docker host.
+
+For an operator-reviewed rollback, install `deploy/rollback-compatible.sh` as `/opt/compute-for-good/bin/rollback-compatible` and run it with an exact prior SHA, or omit SHA to use previous-sha. It asks deploy-release to compare the target image's migration head with the current database **after acquiring deploy.lock**. A mismatch refuses rollback; no migration downgrade is performed. Matching schema does not replace review of application/data compatibility. An incompatible release requires a separately planned restore.
+
+Use the new restore verifier against the local QA container:
+
+```powershell
+.\backend\.venv\Scripts\python.exe scripts/verify-backup.py --archive PRIVATE_ARCHIVE.dump.fernet --key PRIVATE_KEY --container cfg-qa-postgres-1 --expected-schema d76394fa81b2
+```
+
+It validates the container's QA identity before decrypting, verifies both hashes, creates a random scratch database, restores without owners/privileges and removes only that scratch database. It never targets the live database. Keep archive, manifest and key privately; the encryption key needs a separate secure recovery copy.
+
+For a one-time external readiness/latency snapshot:
+
+```powershell
+.\backend\.venv\Scripts\python.exe scripts/check-public.py --origin https://compute-for-good.tech --samples 10 --interval 0.25 --output artifacts/public-check.json
+```
+
+The command sends sequential unauthenticated GET requests, checks all readiness booleans and real catalog/discovery/security headers, reports p50/p95/max and exits nonzero on failure. It does not create accounts, mutate work, follow redirects, print response bodies or establish peak capacity. Running it periodically and choosing an external alert destination remain separate operator decisions.

@@ -9,9 +9,31 @@ mkdir -p "$BASE/releases" "$BASE/backups"
 exec 9>"$BASE/deploy.lock"
 flock -w 600 9 || { echo 'Another deployment holds the lock' >&2; exit 1; }
 [[ -f "$BASE/.env.production" ]] || { echo 'Private host environment is missing' >&2; exit 1; }
+if [[ ${CFG_REQUIRE_COMPATIBLE_SCHEMA:-0} == 1 ]]; then
+    # Recheck after acquiring the deployment lock: a release waiting on flock
+    # must not use a pre-lock schema snapshot from before another migration.
+    image="ghcr.io/kiselas/compute-for-good-backend:$sha"
+    docker image inspect "$image" >/dev/null
+    pg=$(docker ps -q --filter label=com.docker.compose.project=compute-for-good --filter label=com.docker.compose.service=postgres)
+    [[ -n "$pg" && "$pg" != *$'\n'* ]] || { echo 'Exactly one project PostgreSQL container required' >&2; exit 1; }
+    revision=$(docker exec "$pg" psql -U cfg -d cfg -At -c 'SELECT version_num FROM alembic_version')
+    [[ "$revision" =~ ^[a-zA-Z0-9_]+$ ]] || { echo 'Single current migration revision required' >&2; exit 1; }
+    heads=$(docker run --rm --network none --entrypoint alembic "$image" heads)
+    [[ "$heads" == "$revision (head)" ]] || { echo 'Rollback refused: previous image schema differs; plan database/image recovery privately' >&2; exit 1; }
+    echo 'Previous image migration head matches the locked database; operator-reviewed rollback begins'
+fi
 export DOCKER_CONFIG
 DOCKER_CONFIG=$(mktemp -d "$BASE/.registry-XXXXXX")
-trap 'rm -rf -- "$DOCKER_CONFIG"' EXIT
+stage=''
+backup=''
+cleanup() {
+    rm -rf -- "$DOCKER_CONFIG"
+    case "$stage" in "$BASE"/releases/.stage-*) rm -rf -- "$stage" ;; esac
+    case "$backup" in "$BASE"/backups/pre-*.dump) rm -f -- "$backup.tmp" ;; esac
+}
+trap cleanup EXIT
+free_kib=$(df -Pk "$BASE" | awk 'NR==2 {print $4}')
+[[ "$free_kib" =~ ^[0-9]+$ && "$free_kib" -ge 1048576 ]] || { echo 'Less than 1 GiB free; inspect project image/backup retention before deploying' >&2; exit 1; }
 
 # Only an ephemeral GitHub job token is accepted. No permanent registry login.
 actor=''
@@ -55,7 +77,7 @@ fi
 
 current=''
 [[ ! -f "$BASE/current-sha" ]] || current=$(cat "$BASE/current-sha")
-if [[ "$current" == "$sha" ]] && curl -fsS --max-time 10 http://127.0.0.1:5181/api/ready >/dev/null; then
+if [[ "$current" == "$sha" ]] && python3 "$BASE/bin/check-release.py" --release "$sha" --attempts 1; then
     echo "Release $sha is already ready"
     exit 0
 fi
@@ -74,14 +96,9 @@ failed() {
     echo 'Release failed; current-sha has not been advanced. Database backup retained.' >&2
     echo 'Inspect the schema and restore a compatible image; migrations are never downgraded automatically.' >&2
 }
-trap 'failed; rm -rf -- "$DOCKER_CONFIG"' ERR
+trap failed ERR
 compose up -d --wait --wait-timeout 240
-okay=0
-for _ in $(seq 1 60); do
-    if curl -fsS --max-time 5 http://127.0.0.1:5181/api/ready >/dev/null; then okay=1; break; fi
-    sleep 2
-done
-[[ $okay == 1 ]] || { echo 'Database, Redis or worker readiness failed' >&2; exit 1; }
+python3 "$BASE/bin/check-release.py" --release "$sha"
 
 for url in https://cf.nextdish.tech/ https://next-metrica.com/; do
     curl -fsS --max-time 20 "$url" >/dev/null

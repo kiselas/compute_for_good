@@ -4,7 +4,7 @@ import re
 import uuid
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from .config import settings
 from .models import Project, Submission, Task, WebhookDelivery
 from . import services as s
@@ -50,11 +50,15 @@ def process_reconciliation(db, delivery):
     candidate = db.get(Submission, delivery.payload.get("submission_id"))
     if candidate is None:
         return
-    s.get_task(db, candidate.task_id, True)
+    task = s.get_task(db, candidate.task_id, True)
     row = db.scalar(select(Submission).where(Submission.id == candidate.id)
                     .with_for_update().execution_options(populate_existing=True))
     if row.head_sha == delivery.payload.get("head_sha") and row.status not in {"MERGED", "CLOSED", "INVALID"}:
-        reconcile(db, row)
+        if row.is_demo:
+            reconcile(db, row)
+        else:
+            pr = current_pr(row, db.get(Project, task.project_id))
+            s.observe_pr_state(db, row, pr, closed=pr.get("state") == "closed")
 
 
 def reconcile(db, submission):
@@ -116,14 +120,25 @@ def process_checks_event(db, delivery):
     sha = (payload.get("check_run", {}).get("head_sha") or payload.get("check_suite", {}).get("head_sha") or payload.get("sha", "")).lower()
     if not re.fullmatch(r"[0-9a-f]{7,64}", sha):
         return
+    # A missing synchronize event leaves our stored head behind. GitHub check
+    # events can identify the PR independently of that old SHA; validate the
+    # association by reading its current API state before applying anything.
+    check = payload.get("check_run") or payload.get("check_suite") or {}
+    references = []
+    for pr in check.get("pull_requests", [])[:100]:
+        number = pr.get("number")
+        if isinstance(number, int) and not isinstance(number, bool) and number > 0:
+            references.append(repo + "/pull/" + str(number))
     candidates = db.scalars(select(Submission).join(Task).join(Project).where(
-        Submission.head_sha == sha, Project.repository_url == repo, Submission.is_demo.is_(False),
+        or_(Submission.head_sha == sha, Submission.pr_url.in_(references)),
+        Project.repository_url == repo, Submission.is_demo.is_(False),
         Submission.status.not_in(["MERGED", "CLOSED", "INVALID"]))).all()
     for candidate in candidates:
-        s.get_task(db, candidate.task_id, True)
+        task = s.get_task(db, candidate.task_id, True)
         row = db.scalar(select(Submission).where(Submission.id == candidate.id).with_for_update().execution_options(populate_existing=True))
-        if row.head_sha == sha:
-            reconcile(db, row)
+        if (row.head_sha == sha or row.pr_url in references) and row.status not in {"MERGED", "CLOSED", "INVALID"}:
+            pr = current_pr(row, db.get(Project, task.project_id))
+            s.observe_pr_state(db, row, pr, closed=pr.get("state") == "closed")
 
 
 def create_integration_router(database, required_user):
@@ -157,7 +172,12 @@ def create_integration_router(database, required_user):
         s.get_task(db, candidate.task_id, True)
         row = db.scalar(select(Submission).where(Submission.id == submission_id).with_for_update().execution_options(populate_existing=True))
         try:
-            reconcile(db, row)
+            if row.status not in {"MERGED", "CLOSED", "INVALID"}:
+                if row.is_demo:
+                    reconcile(db, row)
+                else:
+                    pr = current_pr(row, db.get(Project, db.get(Task, row.task_id).project_id))
+                    s.observe_pr_state(db, row, pr, closed=pr.get("state") == "closed")
         except (httpx.HTTPError, ValueError):
             raise HTTPException(503, "GitHub checks could not be verified")
         return {"head_sha": row.head_sha, "checks_passed": row.checks_passed, "status": row.status}

@@ -20,7 +20,8 @@ parser.add_argument('--container', required=True, help='The existing PostgreSQL 
 parser.add_argument('--directory', type=Path, required=True, help='Private off-host backup directory')
 parser.add_argument('--key', type=Path, required=True, help='Private Fernet key file (created once if absent)')
 args = parser.parse_args()
-assert re.fullmatch(r'[A-Za-z0-9_.-]+', args.host) and re.fullmatch(r'[A-Za-z0-9_.-]+', args.container), 'Use simple existing alias/container names'
+if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', args.host) or not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]*', args.container):
+    parser.error('Use simple existing alias/container names, without option prefixes')
 args.directory.mkdir(parents=True, exist_ok=True)
 args.key.parent.mkdir(parents=True, exist_ok=True)
 def private_write(path, value):
@@ -29,18 +30,22 @@ def private_write(path, value):
 
 if not args.key.exists():
     private_write(args.key, Fernet.generate_key())
+if not args.key.is_file() or args.key.is_symlink() or (os.name == 'posix' and args.key.stat().st_mode & 0o077):
+    raise SystemExit('Encryption key must be a private regular file; inspect its permissions privately.')
 cipher = Fernet(args.key.read_bytes().strip())
 result = subprocess.run(['ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes', '-o', 'ConnectTimeout=20', args.host,
                          'docker', 'exec', args.container, 'pg_dump', '-U', 'cfg', '-d', 'cfg', '-Fc'],
                         stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
 if result.returncode != 0:
     raise SystemExit('Remote backup failed; no archive saved. Inspect the SSH/backup service privately.')
-assert result.stdout.startswith(b'PGDMP'), 'Remote response is not a PostgreSQL custom archive'
+if not result.stdout.startswith(b'PGDMP'):
+    raise SystemExit('Remote response is not a PostgreSQL custom archive')
 filename = 'cfg-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ') + '-' + uuid.uuid4().hex + '.dump.fernet'
 destination = args.directory / filename
 encrypted = cipher.encrypt(result.stdout)
 private_write(destination, encrypted)
-assert hashlib.sha256(cipher.decrypt(destination.read_bytes())).digest() == hashlib.sha256(result.stdout).digest(), 'Off-host encryption verification failed'
+if hashlib.sha256(cipher.decrypt(destination.read_bytes())).digest() != hashlib.sha256(result.stdout).digest():
+    raise SystemExit('Off-host encryption verification failed')
 manifest = {'filename': filename, 'created_at': datetime.now(timezone.utc).isoformat(), 'plaintext_bytes': len(result.stdout),
             'archive_sha256': hashlib.sha256(result.stdout).hexdigest(), 'encrypted_sha256': hashlib.sha256(encrypted).hexdigest()}
 manifest_path = destination.with_suffix('.json')

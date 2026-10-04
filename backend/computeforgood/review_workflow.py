@@ -351,8 +351,7 @@ def resolve_finding(db, review_id, finding_index, head_sha, evidence, user):
         s.fail(401, 'Participant access is suspended')
     if user.id == submission.author_id:
         s.fail(403, 'Authors cannot adjudicate their own findings')
-    operator_authority = (user.role == 'operator'
-                          and (user.is_demo or not hasattr(user, 'credential_scopes')))
+    operator_authority = s.browser_operator(user)
     if user.id != review.reviewer_id and not operator_authority:
         s.fail(403, 'Only the original reviewer or an operator may resolve a finding')
     if head_sha.lower() != submission.head_sha.lower():
@@ -456,7 +455,7 @@ def create_router(database_dependency, user_dependency):
             Review.submission_id == submission.id, Review.reviewer_id == user.id,
             Review.head_sha == submission.head_sha,
         ))
-        if (user.role != 'operator' and user.id not in {submission.author_id, review.reviewer_id}
+        if (not s.browser_operator(user) and user.id not in {submission.author_id, review.reviewer_id}
                 and not own_current
                 and not s.browser_maintainer(db, s.get_task(db, submission.task_id).project_id, user)):
             s.fail(403, 'Review evidence remains blind until your current-head review is submitted')
