@@ -4,7 +4,7 @@ Push-Location -LiteralPath $projectRoot
 try {
     uv run --with-editable backend python scripts/prepare-local-smoke.py
     if ($LASTEXITCODE -ne 0) { throw 'Local smoke configuration failed.' }
-    docker compose -p cfg-qa -f compose.yaml -f deploy/qa.override.yaml up --build -d --wait postgres redis backend worker integration_worker
+    docker compose -p cfg-qa -f compose.yaml -f deploy/qa.override.yaml up --build -d --wait postgres redis backend worker integration_worker frontend
     if ($LASTEXITCODE -ne 0) { throw 'Isolated QA services failed to start.' }
     docker compose -p cfg-production-smoke --env-file .env.production-smoke -f compose.production.yaml -f deploy/production-smoke.override.yaml up --build -d --wait --wait-timeout 240
     if ($LASTEXITCODE -ne 0) { throw 'Production transport smoke services failed to start.' }
