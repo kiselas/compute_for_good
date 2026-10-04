@@ -877,5 +877,15 @@
   "GitHub connected": "GitHub подключён",
   "Link GitHub to verify that submitted pull requests belong to you.": "Подключите GitHub, чтобы подтвердить авторство отправленных pull request.",
   "Connect GitHub": "Подключить GitHub",
-  "GitHub connection is temporarily unavailable.": "Подключение GitHub временно недоступно."
+  "GitHub connection is temporarily unavailable.": "Подключение GitHub временно недоступно.",
+  "Your submission permit expired. Renew it to register this PR; your draft is preserved.": "Разрешение на отправку истекло. Обновите его, чтобы зарегистрировать PR. Введённые данные сохранены.",
+  "Renew submission permit": "Обновить разрешение на отправку",
+  "Not scored": "Оценки пока нет",
+  "Project scoring is not available yet": "Оценка проекта пока недоступна",
+  "Project scoring is not available yet. Verification qualifies a repository for work; demo scores are sample data.": "Оценка проектов пока недоступна. Проверка разрешает работу с репозиторием; оценки демопроектов — пример данных.",
+  "Unable to load the maintainer workspace": "Не удалось загрузить кабинет владельца",
+  "Check your connection, then reload this page to try again.": "Проверьте соединение и обновите страницу, чтобы повторить попытку.",
+  "Reload page": "Обновить страницу",
+  "Loading maintainer workspace…": "Загрузка кабинета владельца…",
+  "Back to account": "Вернуться в аккаунт"
 }

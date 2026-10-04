@@ -44,6 +44,17 @@ def authenticate(db, token):
     return user
 
 
+def browser_operator(user):
+    """Administrative authority belongs to browser login, not a scoped PAT.
+
+    The original local demo bearer is the sole browser substitute. A scoped
+    credential issued to a demo operator still has normal agent restrictions.
+    """
+    return bool(user and user.role == "operator" and (
+        not hasattr(user, "credential_scopes") or
+        settings.demo_mode and user.is_demo and getattr(user, "credential_is_demo", False)))
+
+
 def operator(user):
     db = object_session(user)
     if db is not None:
@@ -52,7 +63,7 @@ def operator(user):
         fail(401, "Account suspended")
     if user.role != "operator":
         fail(403, "Operator permission required")
-    if not user.is_demo and hasattr(user, "credential_scopes"):
+    if not browser_operator(user):
         fail(403, "Operator actions require browser login")
 
 
@@ -89,7 +100,7 @@ def task_dto(db, row, user=None):
     if row.status in {"CHANGES_NEEDED", "AWAITING_MAINTAINER", "REVIEW_PASSED"}:
         submission = db.scalar(select(Submission).where(Submission.task_id == row.id))
         own_review = submission and user and db.scalar(select(Review.id).where(Review.submission_id == submission.id, Review.reviewer_id == user.id, Review.head_sha == submission.head_sha))
-        visible = submission and user and (user.role == "operator" or submission.author_id == user.id or own_review or browser_maintainer(db, row.project_id, user))
+        visible = submission and user and (browser_operator(user) or submission.author_id == user.id or own_review or browser_maintainer(db, row.project_id, user))
         if not visible:
             result["status"] = "REVIEWING"
     if user:
@@ -104,7 +115,7 @@ def visible_task_status(user):
     hidden = Task.status.in_(["CHANGES_NEEDED", "AWAITING_MAINTAINER", "REVIEW_PASSED"])
     visible = False
     if user:
-        if user.role == "operator":
+        if browser_operator(user):
             return Task.status
         own_submission = select(Submission.id).where(
             Submission.task_id == Task.id, Submission.author_id == user.id,
@@ -149,7 +160,7 @@ def submission_dto(db, row, user=None, include_reviews=False):
     result = {key: getattr(row, key) for key in ("id", "task_id", "author_id", "pr_url", "head_sha", "status", "created_at", "is_demo", "checks_passed")}
     own = user and db.scalar(select(Review.id).where(Review.submission_id == row.id, Review.reviewer_id == user.id, Review.head_sha == row.head_sha))
     task = db.get(Task, row.task_id)
-    visible = user and (user.role == "operator" or user.id == row.author_id or own or browser_maintainer(db, task.project_id, user))
+    visible = user and (browser_operator(user) or user.id == row.author_id or own or browser_maintainer(db, task.project_id, user))
     q = quorum(db, row)
     if not visible:
         q = {**q, "approved": 0, "blocked": False, "passed": False, "blind": True}
@@ -291,8 +302,14 @@ def prepare(db, task_id, lease_token, user):
     if not lease:
         fail(409, "LEASE_EXPIRED: no active lease")
     active_lease(db, lease.id, lease_token, user)
-    if task.status not in {"CLAIMED", "IN_PROGRESS"}:
+    if task.status not in {"CLAIMED", "IN_PROGRESS", "FINALIZING"} or db.scalar(select(Submission.id).where(Submission.task_id == task.id)):
         fail(409, "Task already finalizing or submitted")
+    # The permit is intentionally never persisted in browser storage. Reloading
+    # with the owned lease can rotate it without waiting for its ten-minute TTL.
+    # Task -> lease -> permit locking preserves finalization's global ordering.
+    db.scalars(select(Permit).where(Permit.task_id == task.id, Permit.status == "ACTIVE")
+               .order_by(Permit.id).with_for_update()).all()
+    db.execute(update(Permit).where(Permit.task_id == task.id, Permit.status == "ACTIVE").values(status="REVOKED"))
     raw = secrets.token_urlsafe(32)
     row = Permit(task_id=task.id, lease_id=lease.id, user_id=user.id, token_hash=hash_token(raw), expires_at=min(lease.expires_at, timestamp + timedelta(seconds=settings.permit_seconds)), task_version=task.version)
     db.add(row)
@@ -418,6 +435,53 @@ def merge(db, row, demo=False):
     return submission_dto(db, row, db.get(User, row.author_id))
 
 
+def observe_pr_state(db, row, pr, *, closed):
+    """Apply an authoritative PR observation under task/submission locks.
+
+    Webhooks and persisted reconciliation jobs share these transitions. Real
+    merge credit requires a complete current API observation, never a stale
+    signed event or successful CI for an obsolete head.
+    """
+    task = get_task(db, row.task_id)
+    sha = pr.get("head", {}).get("sha")
+    if not row.is_demo:
+        if not isinstance(sha, str) or not re.fullmatch(r"[0-9a-fA-F]{7,64}", sha):
+            raise ValueError("Current GitHub PR head could not be established")
+        if pr.get("state") not in {"open", "closed"} or not isinstance(pr.get("merged"), bool):
+            raise ValueError("Current GitHub PR state could not be established")
+        if pr["merged"]:
+            try:
+                merged_at = datetime.fromisoformat(pr["merged_at"].replace("Z", "+00:00"))
+            except (KeyError, ValueError, TypeError, AttributeError):
+                raise ValueError("Current GitHub merge timestamp could not be established") from None
+            if not closed or merged_at.tzinfo is None:
+                raise ValueError("Current GitHub merge observation is inconsistent")
+    if sha and sha.lower() != row.head_sha.lower():
+        if not re.fullmatch(r"[0-9a-fA-F]{7,64}", sha):
+            fail(422, "Invalid GitHub head SHA")
+        row.head_sha = sha.lower()
+        row.status = "REVIEWING"
+        row.checks_passed = row.is_demo
+        row.human_approved = False
+        task.status = "REVIEWING"
+        from .review_workflow import head_changed
+        head_changed(db, row)
+        event(db, "submission.updated", row.id, "PR head changed; prior reviews no longer count")
+    if closed:
+        # The authoritative maintainer decision survives a CI endpoint outage.
+        if pr.get("merged"):
+            merge(db, row)
+        else:
+            row.status = "CLOSED"
+            task.status = "CLOSED"
+            from .review_workflow import close_review_work
+            close_review_work(db, row)
+            event(db, "submission.closed", row.id, "PR closed without merge")
+    elif not row.is_demo:
+        from .github_checks import reconcile
+        reconcile(db, row)
+
+
 def process_delivery(db, delivery):
     if delivery.status == "DONE":
         return
@@ -446,35 +510,8 @@ def process_delivery(db, delivery):
             if not row.is_demo:
                 from .github_checks import current_pr
                 pr = current_pr(row, db.get(Project, task.project_id))
-            sha = pr.get("head", {}).get("sha")
-            if sha and sha.lower() != row.head_sha.lower():
-                if not re.fullmatch(r"[0-9a-fA-F]{7,64}", sha):
-                    fail(422, "Invalid GitHub head SHA")
-                row.head_sha = sha.lower()
-                row.status = "REVIEWING"
-                row.checks_passed = row.is_demo
-                row.human_approved = False
-                task.status = "REVIEWING"
-                from .review_workflow import head_changed
-                head_changed(db, row)
-                from .github_checks import enqueue_reconciliation
-                enqueue_reconciliation(db, row)
-                event(db, "submission.updated", row.id, "PR head changed; prior reviews no longer count")
             closed = (row.is_demo and payload.get("action") == "closed") or (not row.is_demo and pr.get("state") == "closed")
-            # A maintainer's authoritative terminal decision must not be held
-            # hostage by a transient CI endpoint outage.
-            if not row.is_demo and not closed and row.status not in {"MERGED", "CLOSED", "INVALID"}:
-                from .github_checks import reconcile
-                reconcile(db, row)
-            if closed:
-                if pr.get("merged"):
-                    merge(db, row)
-                else:
-                    row.status = "CLOSED"
-                    task.status = "CLOSED"
-                    from .review_workflow import close_review_work
-                    close_review_work(db, row)
-                    event(db, "submission.closed", row.id, "PR closed without merge")
+            observe_pr_state(db, row, pr, closed=closed)
     delivery.status = "DONE"
     delivery.attempts += 1
     delivery.error = None

@@ -11,4 +11,7 @@ else:
     with engine.connect() as connection:
         context.configure(connection=connection, target_metadata=Base.metadata)
         with context.begin_transaction():
+            # Runtime requests are bounded; schema migrations may legitimately
+            # take longer. Existing lock timeout still caps lock acquisition.
+            connection.exec_driver_sql("SET LOCAL statement_timeout = 0")
             context.run_migrations()

@@ -877,5 +877,15 @@
   "GitHub connected": "已连接 GitHub",
   "Link GitHub to verify that submitted pull requests belong to you.": "连接 GitHub，以验证提交的拉取请求属于您。",
   "Connect GitHub": "连接 GitHub",
-  "GitHub connection is temporarily unavailable.": "GitHub 连接暂时不可用。"
+  "GitHub connection is temporarily unavailable.": "GitHub 连接暂时不可用。",
+  "Your submission permit expired. Renew it to register this PR; your draft is preserved.": "提交许可已过期。请续期后登记此 PR；已填写的草稿会保留。",
+  "Renew submission permit": "续期提交许可",
+  "Not scored": "尚未评分",
+  "Project scoring is not available yet": "项目评分尚未提供",
+  "Project scoring is not available yet. Verification qualifies a repository for work; demo scores are sample data.": "项目评分尚未提供。通过验证表示仓库可以接受任务；演示评分仅为示例数据。",
+  "Unable to load the maintainer workspace": "无法加载维护者工作区",
+  "Check your connection, then reload this page to try again.": "请检查网络连接，然后重新加载此页面以重试。",
+  "Reload page": "重新加载页面",
+  "Loading maintainer workspace…": "正在加载维护者工作区…",
+  "Back to account": "返回账户"
 }

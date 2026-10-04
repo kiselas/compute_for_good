@@ -1,5 +1,7 @@
 # Audit and priority implementation — 4 October 2026
 
+This is the first audit release snapshot. See [round 2](project-audit-2026-10-04-round2.md) for the subsequent audit, fixes and repeated review.
+
 Baseline: main 57b460f, deployed after the first real contribution. Static review, three parallel implementation/review agents, actual local PostgreSQL/Redis, HTTP/MCP tests and isolated Docker/backup experiments were used. CodeGraph remains disabled by owner choice. No production attack or mass traffic was generated.
 
 ## Findings fixed in this release

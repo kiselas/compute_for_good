@@ -1,7 +1,11 @@
 import {
   createContext,
+  Component,
+  lazy,
+  Suspense,
   useContext,
   useEffect,
+  useReducer,
   useState,
   type FormEvent,
   type ReactNode,
@@ -66,8 +70,10 @@ import {
 } from "./api";
 import { t, useLocale, formatDate, formatNumber } from "./i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
-import MaintainerWorkspace from "./MaintainerWorkspace";
 import { readLeaseToken, writeLeaseToken } from "./leaseStorage";
+import { initialPermitState, permitReducer, permitIsValid, leaseIsUsable, submissionPayload, type SubmissionPermit } from "./permitState";
+
+const MaintainerWorkspace = lazy(() => import("./MaintainerWorkspace"));
 
 const Session = createContext<{
   user: User | null;
@@ -1147,19 +1153,17 @@ function ProjectCard({ project }: { project: Project }) {
       </span>
       <h3>{project.name}</h3>
       <p>{project.description}</p>
-      <div className="score-row">
+      <div className={`score-row ${project.is_demo ? "" : "score-unavailable"}`}>
         <div>
           <small>{t("Agent readiness")}</small>
           <strong>
-            {formatNumber(project.readiness_score)}
-            <span>/100</span>
+            {project.is_demo ? <>{formatNumber(project.readiness_score)}<span>/100</span></> : t("Not scored")}
           </strong>
         </div>
         <div>
           <small>{t("Potential impact")}</small>
           <strong>
-            {formatNumber(project.impact_score)}
-            <span>/100</span>
+            {project.is_demo ? <>{formatNumber(project.impact_score)}<span>/100</span></> : t("Not scored")}
           </strong>
         </div>
         <ArrowUpRight size={20} />
@@ -1226,7 +1230,7 @@ function ProjectsPage() {
       </DataState>
       <p className="muted small-print">
         {t(
-          "Readiness and impact are moderated heuristics, not objective rankings. Candidate projects do not dispatch work until verified.",
+          "Project scoring is not available yet. Verification qualifies a repository for work; demo scores are sample data.",
         )}{" "}
       </p>
     </>
@@ -1263,11 +1267,11 @@ function ProjectPage() {
             <Status value={p.status} />
             <span>
               {t("Readiness")}{" "}
-              <strong>{formatNumber(p.readiness_score)}/100</strong>
+              <strong>{p.is_demo ? `${formatNumber(p.readiness_score)}/100` : t("Not scored")}</strong>
             </span>
             <span>
               {t("Potential impact")}{" "}
-              <strong>{formatNumber(p.impact_score)}/100</strong>
+              <strong>{p.is_demo ? `${formatNumber(p.impact_score)}/100` : t("Not scored")}</strong>
             </span>
           </div>
           {user && (user.id === p.maintainer_id || user.role === "operator") && (
@@ -1315,20 +1319,79 @@ function ProjectPage() {
   );
 }
 
+function ContributionRegistration({ task, lease, clock }: { task: Task; lease: Lease; clock: number }) {
+  const navigate = useNavigate();
+  const action = useAction();
+  const [state, dispatch] = useReducer(permitReducer, undefined, initialPermitState);
+  const valid = !state.invalidated && permitIsValid(state.permit, clock);
+  useEffect(() => {
+    if (action.error instanceof ApiError && action.error.status === 409 &&
+      ["PERMIT_EXPIRED_OR_CONSUMED", "Permit or lease expired during verification"].includes(action.error.message)) {
+      dispatch({ type: "invalidated" });
+    }
+  }, [action.error]);
+  const issuePermit = () => {
+    if (action.busy || !leaseIsUsable(lease, Date.now())) return;
+    void action.run<SubmissionPermit>(`/tasks/${task.id}/permit`, { lease_token: lease.token },
+      permit => dispatch({ type: "issued", permit }));
+  };
+  return <section className="panel">
+    <h2>{t("Register your contribution")}</h2>
+    <p className="muted">{t("A short-lived permit confirms the lease is still yours.")} {task.is_demo
+      ? t("In this demo, sample PR references are accepted.")
+      : t("Use a real PR in this project with the required CFG provenance.")}</p>
+    {!state.permit ? <button className="button secondary" disabled={action.busy} onClick={issuePermit}>
+      {t("Prepare submission")} <ArrowRight size={16} />
+    </button> : <form onSubmit={event => {
+      event.preventDefault();
+      // Recheck the live clock: throttled background timers must not authorize
+      // submitting an expired token between the last render and this event.
+      const body = submissionPayload(state, Date.now(), lease);
+      if (!body || action.busy) return;
+      void action.run<Submission>(`/tasks/${task.id}/submissions`, body,
+        submission => navigate(`/submissions/${submission.id}`));
+    }}>
+      {valid ? <p className="success-message" role="status"><CheckCircle2 size={16} />
+        {t("Permit expires")} {date(state.permit.expires_at)}
+      </p> : <div className="error-box" role="alert"><p>{t("Your submission permit expired. Renew it to register this PR; your draft is preserved.")}</p>
+        <button type="button" className="button secondary" disabled={action.busy} onClick={issuePermit}>
+          {t("Renew submission permit")}
+        </button>
+      </div>}
+      <FormField label={t("Pull request URL")}><input required type="url" name="pr_url"
+        value={state.draft.pr_url} onChange={event => dispatch({ type: "edit", field: "pr_url", value: event.target.value })}
+        placeholder="https://github.com/org/repo/pull/123" /></FormField>
+      <FormField label={t("Head commit SHA")}><input required name="head_sha" pattern="[a-fA-F0-9]{7,40}" minLength={7} maxLength={40}
+        value={state.draft.head_sha} onChange={event => dispatch({ type: "edit", field: "head_sha", value: event.target.value })}
+        placeholder={t("40-character commit SHA")} /></FormField>
+      <FormField label={t("Implementation summary")}><textarea required name="summary" rows={3}
+        value={state.draft.summary} onChange={event => dispatch({ type: "edit", field: "summary", value: event.target.value })} /></FormField>
+      <button className="button" disabled={action.busy || !valid}>
+        {t("Register submission")} <GitPullRequest size={16} />
+      </button>
+    </form>}
+    <ActionFeedback action={action} />
+  </section>;
+}
+
 function TaskPage() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const query = useData<Task>(`/tasks/${id}`);
   const { user } = useContext(Session);
   const activity = useData<Activity>("/activity", !!user);
   const action = useAction();
-  const [permit, setPermit] = useState<{
-    token: string;
-    expires_at: string;
-  } | null>(null);
+  const [clock, setClock] = useState(Date.now);
   useEffect(() => {
-    setPermit(null);
-  }, [user?.id, id]);
+    const tick = () => setClock(Date.now());
+    const timer = window.setInterval(tick, 1000);
+    window.addEventListener("focus", tick);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", tick);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, []);
   return (
     <DataState query={query}>
       {(task) => {
@@ -1342,7 +1405,7 @@ function TaskPage() {
         const leaseIsActive =
           !!ownLease &&
           ownLease.status === "ACTIVE" &&
-          new Date(ownLease.expires_at).getTime() > Date.now();
+          new Date(ownLease.expires_at).getTime() > clock;
         return (
           <>
             <Link to="/tasks" className="back-link">
@@ -1469,86 +1532,7 @@ function TaskPage() {
                         </button>
                       </form>
                     </section>
-                    <section className="panel">
-                      <h2>{t("Register your contribution")}</h2>
-                      <p className="muted">
-                        {t(
-                          "A short-lived permit confirms the lease is still yours.",
-                        )}{" "}
-                        {task.is_demo
-                          ? t(
-                              "In this demo, sample PR references are accepted.",
-                            )
-                          : t(
-                              "Use a real PR in this project with the required CFG provenance.",
-                            )}
-                      </p>
-                      {!permit ? (
-                        <button
-                          className="button secondary"
-                          disabled={action.busy}
-                          onClick={() => {
-                            void action.run(
-                              `/tasks/${task.id}/permit`,
-                              { lease_token: ownLease.token },
-                              setPermit,
-                            );
-                          }}
-                        >
-                          {t("Prepare submission")} <ArrowRight size={16} />
-                        </button>
-                      ) : (
-                        <form
-                          onSubmit={(e) => {
-                            e.preventDefault();
-                            const f = new FormData(e.currentTarget);
-                            void action.run<Submission>(
-                              `/tasks/${task.id}/submissions`,
-                              {
-                                permit_token: permit.token,
-                                pr_url: f.get("pr_url"),
-                                head_sha: f.get("head_sha"),
-                                summary: f.get("summary"),
-                              },
-                              (submission) => {
-                                setPermit(null);
-                                navigate(`/submissions/${submission.id}`);
-                              },
-                            );
-                          }}
-                        >
-                          <p className="success-message">
-                            <CheckCircle2 size={16} />
-                            {t("Permit expires")} {date(permit.expires_at)}
-                          </p>
-                          <FormField label={t("Pull request URL")}>
-                            <input
-                              required
-                              type="url"
-                              name="pr_url"
-                              placeholder="https://github.com/org/repo/pull/123"
-                            />
-                          </FormField>
-                          <FormField label={t("Head commit SHA")}>
-                            <input
-                              required
-                              name="head_sha"
-                              pattern="[a-fA-F0-9]{7,40}"
-                              minLength={7}
-                              maxLength={40}
-                              placeholder={t("40-character commit SHA")}
-                            />
-                          </FormField>
-                          <FormField label={t("Implementation summary")}>
-                            <textarea required name="summary" rows={3} />
-                          </FormField>
-                          <button className="button" disabled={action.busy}>
-                            {t("Register submission")}{" "}
-                            <GitPullRequest size={16} />
-                          </button>
-                        </form>
-                      )}
-                    </section>
+                    <ContributionRegistration key={`${user?.id}:${task.id}:${ownLease.id}`} task={task} lease={ownLease} clock={clock} />
                   </>
                 )}
               </div>
@@ -1612,7 +1596,6 @@ function TaskPage() {
                             void action.run(
                               `/leases/${ownLease.id}/release`,
                               { token: ownLease.token },
-                              () => setPermit(null),
                             );
                           }}
                         >
@@ -3318,10 +3301,30 @@ function ConnectPage() {
     </>
   );
 }
+class WorkspaceLoadBoundary extends Component<{ children: ReactNode }, { failed: boolean }> {
+  state = { failed: false };
+  static getDerivedStateFromError() { return { failed: true }; }
+  render() {
+    if (this.state.failed) return <section className="panel error-box" role="alert">
+      <h2>{t("Unable to load the maintainer workspace")}</h2>
+      <p>{t("Check your connection, then reload this page to try again.")}</p>
+      <button className="button secondary" onClick={() => window.location.reload()}>{t("Reload page")}</button>
+      <Link className="button secondary" to="/account">{t("Back to account")}</Link>
+    </section>;
+    return this.props.children;
+  }
+}
 function MaintainerWorkspaceRoute() {
   const { id } = useParams();
   const { user } = useContext(Session);
-  return <MaintainerWorkspace key={`${user?.id ?? "guest"}:${id ?? "projects"}`} projectId={id} user={user} />;
+  return <WorkspaceLoadBoundary key={`${user?.id ?? "guest"}:${id ?? "projects"}`}>
+    <Suspense fallback={<section className="panel" role="status" aria-live="polite">
+      <p>{t("Loading maintainer workspace…")}</p>
+      <Link to="/account">{t("Back to account")}</Link>
+    </section>}>
+      <MaintainerWorkspace projectId={id} user={user} />
+    </Suspense>
+  </WorkspaceLoadBoundary>;
 }
 function MaintainerPage() {
   const { user } = useContext(Session);

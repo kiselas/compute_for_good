@@ -97,7 +97,7 @@ export default function MaintainerWorkspace({ projectId, user }: { projectId?: s
       <Link className="button" to="/onboarding">{t("Submit a repository")}</Link></section>}
     <div className="maintainer-projects">{list.data?.map(project => <Link className="panel maintainer-project" key={project.id} to={`/maintainer/projects/${project.id}`}>
       <div className="maintainer-card-heading"><h2>{project.name}</h2><span className="badge">{readable(project.status)}</span></div><p>{project.description}</p>
-      <div className="maintainer-card-footer"><span>{t("Readiness: {score}/100", { score: formatNumber(project.readiness_score) })}</span><span>{t("Open roadmap")} <ArrowRight size={16} /></span></div>
+      <div className="maintainer-card-footer"><span>{project.is_demo ? t("Readiness: {score}/100", { score: formatNumber(project.readiness_score) }) : t("Project scoring is not available yet")}</span><span>{t("Open roadmap")} <ArrowRight size={16} /></span></div>
     </Link>)}</div></div>;
   if (plan.isPending) return <p role="status">{t("Loading project plan…")}</p>;
   if (plan.isError) return <ErrorNotice error={plan.error} retry={() => void plan.refetch()} />;

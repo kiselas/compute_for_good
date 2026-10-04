@@ -73,6 +73,9 @@ def test_registration_and_revision_queue_ci_with_retry(api, database, make_task,
     monkeypatch.setattr(app_module, 'SessionLocal', factory)
     monkeypatch.setattr(worker, 'SessionLocal', factory)
     monkeypatch.setattr(services, 'validate_pr', lambda *args, **kwargs: False)
+    monkeypatch.setattr(checks, 'current_pr', lambda submission, project: {
+        'head': {'sha': submission.head_sha}, 'state': 'open', 'merged': False,
+    })
     enqueue = checks.enqueue_reconciliation
     # Future due times isolate this test from the actual integration worker.
     future = datetime(2100, 1, 1, tzinfo=timezone.utc)
@@ -140,7 +143,10 @@ def test_closed_before_synchronize_records_authoritative_head(api, database, mak
     factory = sessionmaker(database.engine, expire_on_commit=False)
     with factory.begin() as db:
         db.get(Submission, submission['id']).is_demo = False
-    monkeypatch.setattr(checks, 'current_pr', lambda *args: {'head': {'sha': 'b' * 40}, 'state': 'closed', 'merged': merged})
+    monkeypatch.setattr(checks, 'current_pr', lambda *args: {
+        'head': {'sha': 'b' * 40}, 'state': 'closed', 'merged': merged,
+        'merged_at': '2026-10-04T09:46:03Z' if merged else None,
+    })
     monkeypatch.setattr(checks, 'api_json', lambda path: pytest.fail('Terminal decision must survive unavailable CI'))
     delivery_id = 'qa-order-' + uuid.uuid4().hex
     with factory.begin() as db:

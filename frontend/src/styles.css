@@ -1039,6 +1039,9 @@ code {
   font-weight: 500;
   color: #536c99;
 }
+.score-row.score-unavailable strong {
+  font-size: 13px;
+}
 .score-row strong span {
   font-size: 10px;
   color: #b6c1d4;

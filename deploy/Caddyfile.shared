@@ -30,6 +30,7 @@ compute-for-good.tech {
 }
 
 www.compute-for-good.tech {
+    import cfg_headers
     redir https://compute-for-good.tech{uri} permanent
 }
 

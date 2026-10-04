@@ -226,9 +226,18 @@ def credentials(user=Depends(browser_user), db=Depends(db_session, scope="functi
 def create_credential(body: CredentialBody, response: Response, user=Depends(browser_user), db=Depends(db_session, scope="function")):
     if not set(body.scopes).issubset(SCOPES):
         raise HTTPException(422, "Unknown credential scope")
-    active = db.scalars(select(ApiCredential.id).where(ApiCredential.user_id == user.id, ApiCredential.revoked_at.is_(None), ApiCredential.expires_at > now(db))).all()
+    # Serialize this account's quota check with creation (and suspension).
+    # Otherwise simultaneous browser requests can all observe the final slot.
+    db.scalar(select(User).where(User.id == user.id).with_for_update()
+              .execution_options(populate_existing=True))
+    if user.suspended:
+        raise HTTPException(401, "Account suspended")
+    active = db.scalars(select(ApiCredential.id).where(
+        ApiCredential.user_id == user.id, ApiCredential.kind == "access", ApiCredential.grant_id.is_(None),
+        ApiCredential.revoked_at.is_(None), ApiCredential.expires_at > now(db),
+    )).all()
     if len(active) >= 20:
-        raise HTTPException(409, "Revoke an existing credential before creating another")
+        raise HTTPException(409, "Revoke an existing personal access token before creating another")
     raw = "cfg_" + secrets.token_urlsafe(40)
     row = ApiCredential(user_id=user.id, token_hash=hash_token(raw), name=body.name, scopes=sorted(set(body.scopes)), expires_at=now(db) + timedelta(days=body.expires_in_days))
     db.add(row)

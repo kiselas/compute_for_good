@@ -877,5 +877,15 @@
   "GitHub connected": "GitHub connected",
   "Link GitHub to verify that submitted pull requests belong to you.": "Link GitHub to verify that submitted pull requests belong to you.",
   "Connect GitHub": "Connect GitHub",
-  "GitHub connection is temporarily unavailable.": "GitHub connection is temporarily unavailable."
+  "GitHub connection is temporarily unavailable.": "GitHub connection is temporarily unavailable.",
+  "Your submission permit expired. Renew it to register this PR; your draft is preserved.": "Your submission permit expired. Renew it to register this PR; your draft is preserved.",
+  "Renew submission permit": "Renew submission permit",
+  "Not scored": "Not scored",
+  "Project scoring is not available yet": "Project scoring is not available yet",
+  "Project scoring is not available yet. Verification qualifies a repository for work; demo scores are sample data.": "Project scoring is not available yet. Verification qualifies a repository for work; demo scores are sample data.",
+  "Unable to load the maintainer workspace": "Unable to load the maintainer workspace",
+  "Check your connection, then reload this page to try again.": "Check your connection, then reload this page to try again.",
+  "Reload page": "Reload page",
+  "Loading maintainer workspace…": "Loading maintainer workspace…",
+  "Back to account": "Back to account"
 }

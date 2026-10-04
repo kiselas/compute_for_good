@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from redis import Redis
 from sqlalchemy import func, or_, select, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError, OperationalError, TimeoutError as PoolTimeoutError
 import socketio
 from .config import settings
 from .db import SessionLocal
@@ -38,7 +38,7 @@ def optional_user(request: Request, authorization: str | None = Header(default=N
     # Agent tokens coordinate work; browser operator authority is a separate
     # boundary. The local demo retains its original test identities.
     admin_operation = request.url.path.startswith("/api/admin/") or request.url.path == "/api/tasks" and request.method != "GET" or request.method == "PATCH" and request.url.path.startswith("/api/projects/")
-    if not user.is_demo and admin_operation:
+    if not user.credential_is_demo and admin_operation:
         raise HTTPException(403, "Browser operator login required")
     return user
 
@@ -87,6 +87,20 @@ api.include_router(auth.router)
 async def integrity_error(request, error):
     from fastapi.responses import JSONResponse
     return JSONResponse(status_code=409, content={"detail": "Concurrent operation or duplicate resource; refresh and retry"})
+
+
+@api.exception_handler(DBAPIError)
+@api.exception_handler(PoolTimeoutError)
+async def database_error(request, error):
+    from fastapi.responses import JSONResponse
+    # Do not return SQL, parameters or driver exception text to the caller.
+    # PostgreSQL distinguishes bounded query/lock cancellation and retryable
+    # conflicts from integrity and application errors.
+    code = getattr(getattr(error, "orig", None), "sqlstate", None)
+    if isinstance(error, (PoolTimeoutError, OperationalError)) or code in {"55P03", "57014", "40001", "40P01", "53300"} or getattr(error, "connection_invalidated", False):
+        return JSONResponse(status_code=503, content={"detail": "Database temporarily busy; retry later"},
+                            headers={"Retry-After": "3", "Cache-Control": "no-store"})
+    return JSONResponse(status_code=500, content={"detail": "Database operation failed"})
 
 
 @api.get("/api/health")

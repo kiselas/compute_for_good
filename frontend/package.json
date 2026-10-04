@@ -7,7 +7,8 @@
     "check:i18n": "node scripts/check-i18n.mjs",
     "dev": "vite --host 127.0.0.1",
     "test:storage": "node --test scripts/test-lease-storage.mjs",
-    "build": "npm run check:i18n && npm run test:storage && tsc -b && vite build",
+    "test:permit": "node --test scripts/test-permit-state.mjs",
+    "build": "npm run check:i18n && npm run test:storage && npm run test:permit && tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
