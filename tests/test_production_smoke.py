@@ -27,6 +27,10 @@ def production():
 
 def test_production_readiness_and_fixture_exclusion(production):
     client, _ = production
+    response = client.get('/')
+    assert response.status_code == 200
+    policy = response.headers['content-security-policy']
+    assert "script-src 'self'" in policy and "object-src 'none'" in policy
     assert client.get('/api/ready').status_code == 200
     assert client.get('/api/demo/users').status_code == 404
     assert client.get('/api/me', headers={'Authorization': 'Bearer cfg-demo-admin'}).status_code == 401

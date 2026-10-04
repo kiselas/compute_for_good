@@ -1,50 +1,28 @@
-# ComputeForGood launch roadmap
+# ComputeForGood: roadmap after the first public contribution
 
-The immediate goal is a working public beta: visitors understand the project, create an account, connect an MCP client, reserve eligible work, and submit/review a canonical PR with auditable results. GitHub activation is planned for tomorrow. The owner has selected the domain and host below. Local tests do not establish external availability.
+Updated 2026-10-04 (Europe/Moscow). The public site is https://compute-for-good.tech on the shared host 185.115.33.169. DNS, TLS, GitHub OAuth, signed webhooks and CI/CD are active. The first normal contributor is kiselas; PR #1 completed MCP reservation, independent review, maintainer merge, exactly one impact credit and automatic deployment. This validates one real workflow; it does not establish advertising capacity.
 
-The owner selected `compute-for-good.tech` and the shared former NextDish intl host `185.115.33.169`. After the owner stopped NextDish, read-only verification on 2026-10-03 at 14:54 MSK confirmed that VPN and Content Factory remain running and their HTTPS sites respond successfully. About 1.9 GiB RAM is available and 12 GiB disk is free. The stock production edge still conflicts with the VPN's 80/443 listener; a shared-host deployment variant and explicit SNI route are required. DNS currently returns NXDOMAIN. See [the server reconnaissance](server-recon-2026-10-03.md) for the actual routes, capacity and remaining checks.
+## Current release: audit fixes
 
-## Tonight — implementation and verification
+The audit implementation covers refresh replay family revocation; GitHub OAuth state throttling and bounded retention; complete eligible task/review discovery; browser storage fallback; dynamic nginx upstream DNS; CSP and shared-host HSTS; unique validated concurrent backups and encrypted off-host backup tooling. A six-index Alembic migration supports retention. Mandatory local and hosted verification includes all six production transport checks, new PostgreSQL regressions and a forced backend-IP replacement probe.
 
-Status: the local deliverables below are implemented. The completed integration run passed 59 checks, with 7 additional authorization checks; backup restore and desktop/mobile browser verification passed. See [the launch audit](launch-audit.md) for evidence and limits. External activation remains pending.
+See [the current audit](project-audit-2026-10-04.md) for evidence and explicit remaining limits. Release deployment is accepted only after hosted CI, exact server revision and public readiness/header/browser checks pass.
 
-Maintainer planning update, 2026-10-03: `/maintainer` now supports goals → improvement proposals → private task drafts → human approval/publication → results/acceptance. Three scoped MCP planning tools are available. The current full local run passed 78 integration tests and 7 authorization tests, with no skips. Existing launch checks below remain required; the outstanding defects in [the project audit](project-audit-2026-10-03.md) are tracked separately.
+## Next priorities
 
-| Priority | Deliverable | Completion gate |
+| Priority | Improvement | Acceptance evidence / dependency |
 |---|---|---|
-| P0 | Public landing and separate participant workspace | Desktop/mobile browser checks; working primary calls to action; honest demo labels and empty states |
-| P0 | Registration, login, logout, CSRF and login throttling | Real PostgreSQL sessions; negative tests for credential abuse and privilege escalation |
-| P0 | MCP personal credentials and OAuth connection | Initialize/list/call over the real transport; expiry/revocation/scopes; PKCE and consent flow |
-| P0 | Review reservations, revisions and finding resolution | Race tests; stale SHA/expired lease rejected; author cannot resolve own blocking finding |
-| P0 | Production deployment configuration | Separate demo-free database; no public database/Redis ports; readiness checks; fresh migrations |
-| P0 | Recovery and operator diagnostics | Validated backup restore; isolated webhook retries and dead letter queue; Redis outage recovery |
-| P1 | Project application and personal profile | Candidate applications require operator verification; real contribution counts |
-| P1 | Maintainer roadmap and task preparation | Owner isolation, private drafts, human publication, pause controls, frozen acquired contracts and actual merge evidence |
-| P1 | GitHub adapter ready for configuration | Signed webhook verification/dedup; current SHA CI policy; linked author identity; no synthetic verification |
+| P1 | Least-privilege GitHub repository API credential / App installation | Owner configures a scoped read credential privately; verify PR/check reconciliation and remaining rate budget. Current anonymous API access proves functionality but has a low request budget. |
+| P1 | Recovery for password accounts | Select email provider and verified-email policy, then implement short-lived single-use reset tokens, request throttling, neutral responses and revocation of existing sessions; currently recovery needs support. |
+| P1 | Readiness/error monitoring and load baseline | Measure registration, catalog, MCP and worker latency on the shared host; alerts on ready failures/integration backlog; preserve VPN and Content Factory resources. No capacity claim until measured. |
+| P1 | Recurring encrypted off-host backups | One real archive has been saved/restored manually; choose backup destination, retention and secure second copy of the encryption key before scheduling. The current task creates no scheduler. |
+| P1 | Publish useful LOW-risk work for new visitors | Maintainers provide goals and concrete acceptance criteria; operators verify repository/license/CI; frozen contracts and real review/merge evidence remain mandatory. The first task is already completed. |
+| P2 | Route-level code splitting and full keyboard/mobile accessibility | Frontend still ships about 700 kB before compression; extract pages and measure bundles/interaction/keyboard navigation. |
+| P2 | Project readiness and impact scoring | Scores remain 0 for the first verified project; define evidence-based metrics or replace scores with explicit qualification status. No invented impact. |
+| P2 | Query optimization for large review history | Correctness now scans finite keyset chunks; authoritative per-head quorum can still be expensive for a large history. Benchmark before denormalizing. |
+| P2 | GitHub issue synchronization and invitations | Implement after onboarding, recovery and operations are stable. |
+| Deferred | Sensitive-task dispatch and model attestation | Real HIGH/CRITICAL work remains disabled until verifiable attestation/policy is implemented. |
 
-## Tomorrow — external activation before advertising
+## Launch gates
 
-1. Select the public DNS hostname and deployment host. Deploy `compose.production.yaml` using a private `.env.production`; configure DNS and obtain HTTPS through Caddy.
-2. Bootstrap an operator using the CLI. Verify public registration, session cookies and CSRF through the deployed origin.
-3. Configure GitHub OAuth with `/api/auth/github/callback`; configure the signed webhook `/api/webhooks/github` for pull requests, check runs, check suites and commit statuses. Store secrets privately on the host.
-4. Submit and verify at least one real project. Confirm maintainer permission and license, set named required CI checks, and create a small LOW-risk task with explicit acceptance criteria and verification commands.
-5. Connect a real external MCP client via OAuth or a scoped personal token. Exercise find → claim → heartbeat → context → prepare submission. Verify that wrong/expired/revoked tokens fail.
-6. Finish a real PR → independent review → maintainer merge cycle. Confirm webhook delivery, current-SHA CI, review quorum and one impact credit. Test the advertised browser journey from a clean session on desktop and mobile.
-7. Confirm off-host backup, restore procedure, operator access and readiness monitoring. Start advertising only after these checks pass on the public domain.
-
-The public site can accept participants and project applications before GitHub activation. The complete real contribution loop is not verified until step 6. Demo PRs and local fixture counts must never be presented as public impact.
-
-## After the first public beta
-
-| Priority | Work | Rationale |
-|---|---|---|
-| P1 | Email verification and account recovery | Registration currently needs a deliberate recovery/support policy |
-| P1 | Maintainer repository-ownership proof and GitHub App installations | Scale project verification and limit repository credentials |
-| P1 | Abuse reports, moderation queues, identity linking safeguards | Protect public signup and project submissions as traffic grows |
-| P1 | Accessibility audit with keyboard and screen readers | Verify more than visual appearance and responsive layout |
-| P1 | Error telemetry and load baselines on the chosen host | Establish capacity, latency and alert thresholds from real measurements |
-| P2 | Verified model attestation and sensitive-task dispatch | HIGH/CRITICAL real work stays disabled until the attestation policy is implemented |
-| P2 | Project quality scoring and advanced impact reporting | Use observed outcomes rather than fixture data or invented metrics |
-| P2 | GitHub issue/task synchronization and maintainer invitations | Reduce manual operator work after the core loop proves reliable |
-
-Parallel ownership: backend agent owns identity, MCP authorization and schema migrations; interface agent owns the public site and workspace; verification agent owns the review workflow and tests; root owns deployment, operations, project applications, GitHub reconciliation and integration checks. Shared-file mutations are coordinated explicitly.
+A verified project should have discoverable eligible work, a clear maintainer response policy and real named CI checks. Public beta has a working contribution loop. Advertising volume should follow a measured host capacity baseline, repository API credential, recovery policy and monitoring. These dependencies remain separate from successful regression tests.

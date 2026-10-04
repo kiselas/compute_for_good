@@ -17,4 +17,4 @@ environment['PUBLIC_URL'] = 'http://localhost:8010'
 environment['FRONTEND_URL'] = 'http://localhost:8010'
 environment['SECURE_COOKIES'] = 'false'
 environment['OAUTH_SECRET_KEY'] = Fernet.generate_key().decode()
-raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', 'backend/tests_auth.py', '-q', '--junitxml=tests/artifacts/auth-verification.xml'], cwd=root, env=environment))
+raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', 'backend/tests_auth.py', 'backend/test_oauth_replay.py', '-q', '--junitxml=tests/artifacts/auth-verification.xml'], cwd=root, env=environment))

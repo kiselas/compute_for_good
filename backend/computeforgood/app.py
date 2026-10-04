@@ -202,18 +202,9 @@ def submission(submission_id: str, user=Depends(optional_user), db=Depends(datab
 
 
 @api.get("/api/review-work")
-def review_work(user=Depends(required_user), db=Depends(database, scope="function")):
-    rows = db.scalars(select(Submission).where(Submission.author_id != user.id, Submission.status.in_(["REVIEWING", "CHANGES_NEEDED", "AWAITING_MAINTAINER"])).order_by(Submission.created_at)).all()
-    result = []
-    for row in rows:
-        try:
-            s.check_eligibility(db, db.get(Task, row.task_id), user)
-        except HTTPException:
-            continue
-        own = db.scalar(select(Review.id).where(Review.submission_id == row.id, Review.reviewer_id == user.id, Review.head_sha == row.head_sha))
-        if not own and not s.quorum(db, row)["passed"]:
-            result.append(s.submission_dto(db, row, user))
-    return result
+def review_work(limit: int = 50, user=Depends(required_user), db=Depends(database, scope="function")):
+    from .review_workflow import discover_reviews
+    return [entry['submission'] for entry in discover_reviews(db, user, limit, max_limit=50)]
 
 
 @api.get("/api/events")

@@ -16,7 +16,7 @@ from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError
 from mcp.server.transport_security import TransportSecuritySettings
 from mcp.server.auth.settings import AuthSettings
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, or_, select
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -111,25 +111,22 @@ def create_mcp_app():
                         max_minutes: int = 120, limit: int = 5) -> dict:
         """Return at most five tasks eligible for the authenticated account's stored model tier."""
         def operation(db, user):
+            from .review_workflow import discovery_eligibility
             query = select(Task).join(Project).outerjoin(Improvement, Improvement.id == Task.improvement_id).outerjoin(ProjectGoal, ProjectGoal.id == Improvement.goal_id).where(
-                Task.status == 'AVAILABLE', Project.status == 'VERIFIED',
+                Task.status == 'AVAILABLE', *discovery_eligibility(db, user),
                 Task.estimated_minutes <= max(1, min(max_minutes, 1440)),
-            ).order_by(Project.impact_score.desc(), func.coalesce(ProjectGoal.priority, 3), func.coalesce(Improvement.priority, 3), Task.created_at)
+                or_(Task.improvement_id.is_(None), and_(
+                    Improvement.project_id == Task.project_id,
+                    Improvement.status.in_(['APPROVED', 'IN_PROGRESS']),
+                    or_(Improvement.goal_id.is_(None), and_(
+                        ProjectGoal.project_id == Task.project_id, ProjectGoal.status == 'ACTIVE',
+                    )),
+                )),
+            ).order_by(Project.impact_score.desc(), func.coalesce(ProjectGoal.priority, 3), func.coalesce(Improvement.priority, 3), Task.created_at, Task.id)
             if languages:
                 query = query.where(func.lower(Project.language).in_([language.lower() for language in languages]))
-            result = []
-            for task in db.scalars(query.limit(100)):
-                try:
-                    services.check_eligibility(db, task, user)
-                    from .maintainer_planning import check_dispatch
-                    check_dispatch(db, task)
-                except HTTPException as error:
-                    if error.status_code == 403:
-                        continue
-                    raise
-                result.append(services.task_dto(db, task, user))
-                if len(result) >= max(1, min(limit, 5)):
-                    break
+            result = [services.task_dto(db, task, user)
+                      for task in db.scalars(query.limit(max(1, min(limit, 5))))]
             return {'tasks': result, 'untrusted_content_warning': UNTRUSTED_WARNING}
         return await transaction(ctx, operation)
 
@@ -237,30 +234,8 @@ def create_mcp_app():
     async def find_review_work(ctx: Context, limit: int = 5) -> dict:
         """Find independent reviews, without exposing other reviewers' conclusions."""
         def operation(db, user):
-            rows = db.scalars(select(Submission).where(
-                Submission.author_id != user.id,
-                Submission.status.in_(['REVIEWING', 'CHANGES_NEEDED', 'AWAITING_MAINTAINER']),
-            ).order_by(Submission.created_at).limit(100)).all()
-            result = []
-            for row in rows:
-                if services.quorum(db, row)['passed']:
-                    continue
-                if db.scalar(select(Review.id).where(
-                    Review.submission_id == row.id, Review.reviewer_id == user.id,
-                    Review.head_sha == row.head_sha,
-                )):
-                    continue
-                task = services.get_task(db, row.task_id)
-                try:
-                    services.check_eligibility(db, task, user)
-                except HTTPException as error:
-                    if error.status_code == 403:
-                        continue
-                    raise
-                result.append({'submission': services.submission_dto(db, row, user),
-                               'task': services.task_dto(db, task, user)})
-                if len(result) >= max(1, min(limit, 5)):
-                    break
+            from .review_workflow import discover_reviews
+            result = discover_reviews(db, user, limit)
             return {'reviews': result, 'untrusted_content_warning': UNTRUSTED_WARNING}
         return await transaction(ctx, operation)
 

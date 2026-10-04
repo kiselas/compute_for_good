@@ -6,13 +6,13 @@ claim additionally locks the reviewer first to enforce account concurrency.
 from datetime import timedelta
 import secrets
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
-from sqlalchemy import func, select, update
+from sqlalchemy import func, or_, select, tuple_, update
 
 from . import services as s
 from .config import settings
-from .models import FindingResolution, Project, Review, ReviewLease, ReviewWorkItem, Submission, User
+from .models import FindingResolution, Project, Review, ReviewLease, ReviewWorkItem, Submission, Task, User
 from .schemas import SubmissionBody, TokenBody
 
 
@@ -26,6 +26,98 @@ class ResolutionBody(ReviewClaimBody):
 
 class ResubmissionBody(ReviewClaimBody):
     summary: str | None = Field(default=None, max_length=10000)
+
+
+def discovery_eligibility(db, user):
+    """Apply cheap account/task policy before limiting discovery, not per candidate.
+
+    Mutation paths still revalidate through check_eligibility under their locks.
+    Keep these predicates aligned with that policy; listing never grants a lease.
+    """
+    db.refresh(user)
+    if user.suspended or (user.is_demo and not settings.demo_mode):
+        s.fail(401, 'Account suspended or unavailable')
+    tier = s.TIERS.get(user.model_tier, -1)
+    conditions = [
+        Project.status == 'VERIFIED',
+        Task.required_model_tier.in_([name for name, rank in s.TIERS.items() if rank <= tier]),
+        Task.risk.in_([risk for risk, minimum in s.MIN_TIER.items() if s.TIERS[minimum] <= tier]),
+        or_(Task.risk.not_in(['HIGH', 'CRITICAL']), Task.is_demo.is_(True)),
+    ]
+    if not settings.demo_mode:
+        conditions.extend([Task.is_demo.is_(False), Project.is_demo.is_(False)])
+    return conditions
+
+
+def review_discovery_query(db, user, *, slots=False):
+    """Filter unavailable, self and completed review work before a keyset scan."""
+    query = (select(ReviewWorkItem, Submission, Task) if slots else select(Submission, Task))
+    if slots:
+        query = query.join(Submission, ReviewWorkItem.submission_id == Submission.id).where(
+            ReviewWorkItem.status == 'AVAILABLE', ReviewWorkItem.head_sha == Submission.head_sha,
+        )
+    else:
+        query = query.where(select(ReviewWorkItem.id).where(
+            ReviewWorkItem.submission_id == Submission.id,
+            ReviewWorkItem.head_sha == Submission.head_sha,
+            ReviewWorkItem.status == 'AVAILABLE',
+        ).exists())
+    completed = select(Review.id).where(
+        Review.submission_id == Submission.id, Review.reviewer_id == user.id,
+        Review.head_sha == Submission.head_sha,
+    ).exists()
+    return query.join(Task, Submission.task_id == Task.id).join(Project, Task.project_id == Project.id).where(
+        *discovery_eligibility(db, user), Submission.author_id != user.id,
+        Submission.status.not_in(['MERGED', 'CLOSED', 'INVALID']), ~completed,
+    )
+
+
+def discover_reviews(db, user, limit, *, slots=False, max_limit=5):
+    """Scan bounded keyset chunks until enough eligible reviews are found.
+
+    Quorum is deliberately checked by the canonical domain function, including
+    findings on prior heads. There is no arbitrary first-100-candidates cutoff.
+    DTOs (and their visibility checks) are built only for the returned results.
+    """
+    limit = max(1, min(limit, 50 if slots else max_limit))
+    query = review_discovery_query(db, user, slots=slots)
+    ordered = ReviewWorkItem if slots else Submission
+    # Freeze this request's catalog boundary: concurrent inserts cannot keep
+    # extending the scan while all prior candidates are already complete.
+    boundary = db.execute(query.order_by(ordered.created_at.desc(), ordered.id.desc()).limit(1)).first()
+    if boundary is None:
+        return []
+    last_item = boundary[0]
+    query = query.where(tuple_(ordered.created_at, ordered.id) <= (last_item.created_at, last_item.id))
+    cursor = None
+    result = []
+    while len(result) < limit:
+        page = query
+        if cursor is not None:
+            page = page.where(tuple_(ordered.created_at, ordered.id) > cursor)
+        rows = db.execute(page.order_by(ordered.created_at, ordered.id).limit(100)).all()
+        if not rows:
+            break
+        # Several slots share a submission; do not recalculate its quorum.
+        passed = {}
+        for row in rows:
+            item, submission, task = row if slots else (None, *row)
+            if submission.id not in passed:
+                passed[submission.id] = s.quorum(db, submission)['passed']
+            if passed[submission.id]:
+                continue
+            entry = {'task': s.task_dto(db, task, user),
+                     'submission': s.submission_dto(db, submission, user)}
+            if item is not None:
+                entry.update({key: getattr(item, key) for key in (
+                    'id', 'submission_id', 'head_sha', 'slot_index', 'status', 'created_at',
+                )})
+            result.append(entry)
+            if len(result) == limit:
+                break
+        last = rows[-1][0]
+        cursor = (last.created_at, last.id)
+    return result
 
 
 def locked_submission(db, submission_id):
@@ -329,30 +421,7 @@ def create_router(database_dependency, user_dependency):
 
     @router.get('/review-tasks')
     def review_tasks(limit: int = 10, db=db_dep, user=user_dep):
-        items = db.scalars(select(ReviewWorkItem).join(Submission).where(
-            ReviewWorkItem.status == 'AVAILABLE', ReviewWorkItem.head_sha == Submission.head_sha,
-            Submission.author_id != user.id,
-            Submission.status.not_in(['MERGED', 'CLOSED', 'INVALID']),
-        ).order_by(ReviewWorkItem.created_at).limit(max(1, min(limit, 50)))).all()
-        result = []
-        for item in items:
-            submission = db.get(Submission, item.submission_id)
-            task = s.get_task(db, submission.task_id)
-            try:
-                s.check_eligibility(db, task, user)
-            except HTTPException as error:
-                if error.status_code == 403:
-                    continue
-                raise
-            if s.quorum(db, submission)['passed'] or db.scalar(select(Review.id).where(
-                Review.submission_id == submission.id, Review.reviewer_id == user.id,
-                Review.head_sha == submission.head_sha,
-            )):
-                continue
-            result.append({**{key: getattr(item, key) for key in (
-                'id', 'submission_id', 'head_sha', 'slot_index', 'status', 'created_at',
-            )}, 'task': s.task_dto(db, task, user), 'submission': s.submission_dto(db, submission, user)})
-        return result
+        return discover_reviews(db, user, limit, slots=True)
 
     @router.post('/submissions/{submission_id}/review-claim')
     def claim_endpoint(submission_id: str, body: ReviewClaimBody, db=db_dep, user=user_dep):

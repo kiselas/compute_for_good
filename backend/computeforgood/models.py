@@ -32,8 +32,8 @@ class BrowserSession(Base):
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
     user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
@@ -44,8 +44,8 @@ class ApiCredential(Base):
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)
     name: Mapped[str] = mapped_column(String(100))
     scopes: Mapped[list] = mapped_column(JSON)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     client_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     grant_id: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
@@ -65,7 +65,7 @@ class OAuthGrant(Base):
     client_id: Mapped[str] = mapped_column(ForeignKey("oauth_clients.id"))
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     params: Mapped[dict] = mapped_column(JSON)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, unique=True)
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
     consumed: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -78,7 +78,7 @@ class GitHubLoginState(Base):
     cookie_hash: Mapped[str] = mapped_column(String(64))
     verifier: Mapped[str] = mapped_column(String(200))
     user_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
-    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     consumed: Mapped[bool] = mapped_column(Boolean, default=False)
 
 

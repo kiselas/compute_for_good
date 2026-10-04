@@ -15,7 +15,7 @@ from sqlalchemy import select
 from computeforgood.app import app
 from computeforgood.auth import COOKIE, limiter, password_valid
 from computeforgood.db import SessionLocal
-from computeforgood.models import ApiCredential, BrowserSession, OAuthGrant, User
+from computeforgood.models import ApiCredential, BrowserSession, GitHubLoginState, OAuthGrant, User
 from computeforgood.config import settings
 from computeforgood.services import hash_token, now
 
@@ -149,6 +149,43 @@ def test_github_oauth_not_configured_and_demo_credentials_disabled():
     assert "resource_metadata=" in unauthorized.headers.get("www-authenticate", "")
     assert "/.well-known/oauth-protected-resource/mcp" in unauthorized.headers.get("www-authenticate", "")
     assert client.get("/api/me", headers={"Authorization": "Bearer cfg-demo-alice"}).status_code == 401
+
+
+def test_github_start_limits_state_creation_and_rejects_foreign_origin(monkeypatch):
+    from computeforgood import auth
+    from types import SimpleNamespace
+    monkeypatch.setattr(auth, "settings", SimpleNamespace(**{**vars(settings), "github_client_id": "local-test", "github_client_secret": "local-test"}))
+    client = TestClient(app, base_url="http://localhost:8010")
+    key = "cfg:auth:github-start:" + hash_token("testclient")
+    limiter.delete(key)
+    created = []
+    try:
+        assert client.get('/api/auth/github/start', headers={'Origin': 'https://attacker.invalid'}, follow_redirects=False).status_code == 403
+        assert limiter.get(key) is None
+        for _ in range(30):
+            response = client.get('/api/auth/github/start', follow_redirects=False)
+            assert response.status_code == 302
+            created.append(parse_qs(urlparse(response.headers['location']).query)['state'][0])
+        response = client.get('/api/auth/github/start', follow_redirects=False)
+        assert response.status_code == 429 and response.headers['retry-after'] == '600'
+        assert 'cfg_github_state' not in response.headers.get('set-cookie', '')
+        with SessionLocal() as db:
+            assert len(db.scalars(select(GitHubLoginState).where(GitHubLoginState.id.in_(created))).all()) == 30
+        assert 0 < limiter.ttl(key) <= 600
+    finally:
+        limiter.delete(key)
+
+
+def test_github_state_fail_closed_when_limiter_unavailable(monkeypatch):
+    from computeforgood import auth
+    from types import SimpleNamespace
+    monkeypatch.setattr(auth, "settings", SimpleNamespace(**{**vars(settings), "github_client_id": "local-test", "github_client_secret": "local-test"}))
+    def unavailable(*args):
+        raise ConnectionError('Test-only limiter outage')
+    monkeypatch.setattr(auth.limiter, 'eval', unavailable)
+    client = TestClient(app, base_url='http://localhost:8010')
+    assert client.get('/api/auth/github/start', follow_redirects=False).status_code == 503
+    assert client.get('/api/auth/github/callback', params={'state': 'not-real', 'code': 'not-real'}).status_code == 503
 
 
 @pytest.mark.parametrize("link_existing", [True, False])

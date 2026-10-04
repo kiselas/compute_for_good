@@ -67,6 +67,7 @@ import {
 import { t, useLocale, formatDate, formatNumber } from "./i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
 import MaintainerWorkspace from "./MaintainerWorkspace";
+import { readLeaseToken, writeLeaseToken } from "./leaseStorage";
 
 const Session = createContext<{
   user: User | null;
@@ -133,7 +134,7 @@ const readable = (value: string) =>
 const date = (value: string) => formatDate(value);
 function rememberLease(lease: Lease) {
   if (lease.token)
-    localStorage.setItem(`cfg-lease:${lease.user_id}:${lease.id}`, lease.token);
+    writeLeaseToken("localStorage", `cfg-lease:${lease.user_id}:${lease.id}`, lease.token);
 }
 function restoreLease(lease?: Lease) {
   return lease
@@ -141,7 +142,7 @@ function restoreLease(lease?: Lease) {
         ...lease,
         token:
           lease.token ??
-          localStorage.getItem(`cfg-lease:${lease.user_id}:${lease.id}`) ??
+          readLeaseToken("localStorage", `cfg-lease:${lease.user_id}:${lease.id}`) ??
           undefined,
       }
     : undefined;
@@ -2201,7 +2202,7 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
         );
   const token =
     meta?.token ??
-    (meta ? sessionStorage.getItem(`cfg-review:${user?.id}:${meta.id}`) : null);
+    (meta ? readLeaseToken("sessionStorage", `cfg-review:${user?.id}:${meta.id}`) : null);
   const active = meta && new Date(meta.expires_at).getTime() > Date.now();
   return (
     <section className="panel">
@@ -2242,7 +2243,8 @@ function ReviewComposer({ submission: s }: { submission: Submission }) {
                 { head_sha: s.head_sha },
                 (lease) => {
                   if (lease.token)
-                    sessionStorage.setItem(
+                    writeLeaseToken(
+                      "sessionStorage",
                       `cfg-review:${user?.id}:${lease.id}`,
                       lease.token,
                     );

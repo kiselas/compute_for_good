@@ -120,26 +120,62 @@ class PostgresOAuthProvider:
 
     async def load_refresh_token(self, client, refresh_token):
         def operation(db):
-            row = db.scalar(select(ApiCredential).where(ApiCredential.token_hash == hash_token(refresh_token), ApiCredential.client_id == client.client_id, ApiCredential.kind == "refresh", ApiCredential.revoked_at.is_(None), ApiCredential.expires_at > now(db)))
-            if not row:
+            grant, row = self.refresh_family(db, client, refresh_token)
+            if not row or not grant or grant.revoked or row.expires_at <= now(db):
+                return None
+            if row.revoked_at:
+                # Rotation leaves a tombstone. A matching, unexpired replay is
+                # evidence that this grant's refresh chain may be compromised.
+                # Return only after database() commits the family revocation.
+                self.revoke_family(db, grant)
                 return None
             return RefreshToken(token=refresh_token, client_id=client.client_id, scopes=row.scopes, expires_at=int(row.expires_at.timestamp()), resource=settings.public_url + "/mcp", subject=row.user_id)
         return await database(operation)
 
+    def refresh_family(self, db, client, token):
+        candidate = db.scalar(select(ApiCredential).where(
+            ApiCredential.token_hash == hash_token(token),
+            ApiCredential.client_id == client.client_id,
+            ApiCredential.kind == "refresh",
+        ))
+        if not candidate:
+            return None, None
+        # Grant-first lock order matches explicit revocation and serializes
+        # refreshes across every generation of the same token family.
+        grant = db.scalar(select(OAuthGrant).where(
+            OAuthGrant.id == candidate.grant_id,
+            OAuthGrant.client_id == client.client_id,
+        ).with_for_update())
+        row = db.scalar(select(ApiCredential).where(ApiCredential.id == candidate.id)
+                        .with_for_update().execution_options(populate_existing=True))
+        return grant, row
+
+    def revoke_family(self, db, grant):
+        grant.revoked = True
+        db.execute(update(ApiCredential).where(
+            ApiCredential.grant_id == grant.id,
+            ApiCredential.revoked_at.is_(None),
+        ).values(revoked_at=now(db)))
+
     async def exchange_refresh_token(self, client, refresh_token, scopes):
         def operation(db):
-            candidate = db.scalar(select(ApiCredential).where(ApiCredential.token_hash == hash_token(refresh_token.token)))
-            if not candidate:
-                raise TokenError("invalid_grant", "Refresh token unavailable")
-            grant = db.scalar(select(OAuthGrant).where(OAuthGrant.id == candidate.grant_id).with_for_update())
-            row = db.scalar(select(ApiCredential).where(ApiCredential.id == candidate.id).with_for_update().execution_options(populate_existing=True))
-            if not row or row.client_id != client.client_id or row.kind != "refresh" or row.revoked_at or row.expires_at <= now(db) or not set(scopes).issubset(row.scopes):
+            grant, row = self.refresh_family(db, client, refresh_token.token)
+            if not row or row.expires_at <= now(db) or not set(scopes).issubset(row.scopes):
                 raise TokenError("invalid_grant", "Refresh token expired, revoked, or consumed")
             if not grant or grant.revoked:
                 raise TokenError("invalid_grant", "Authorization revoked")
+            if row.revoked_at:
+                # A second exchange may have passed load_refresh_token before
+                # the first committed. Persist revocation before raising the
+                # SDK exception; raising inside operation would roll it back.
+                self.revoke_family(db, grant)
+                return None
             db.execute(update(ApiCredential).where(ApiCredential.grant_id == grant.id, ApiCredential.revoked_at.is_(None)).values(revoked_at=now(db)))
             return self.issue(db, grant, scopes)
-        return await database(operation)
+        result = await database(operation)
+        if result is None:
+            raise TokenError("invalid_grant", "Refresh token already consumed; authorization revoked")
+        return result
 
     async def load_access_token(self, token):
         def operation(db):
