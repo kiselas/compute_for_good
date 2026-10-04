@@ -10,6 +10,7 @@ from .config import settings
 from .db import SessionLocal
 from .models import Event, Lease, Permit, Task, WebhookDelivery
 from .services import now, process_delivery, reap_task
+from .auth_retention import sweep_auth_retention
 
 log = logging.getLogger("cfg.worker")
 health_redis = Redis.from_url(settings.redis_url, socket_timeout=2, socket_connect_timeout=2)
@@ -24,6 +25,15 @@ class ReliableRedisManager(socketio.RedisManager):
 
 
 manager = ReliableRedisManager(settings.redis_url, channel="cfg-socketio", write_only=True, redis_options={"socket_timeout": 2, "socket_connect_timeout": 2})
+_next_auth_cleanup = 0.0
+
+
+def auth_cleanup():
+    global _next_auth_cleanup
+    if time.monotonic() < _next_auth_cleanup:
+        return
+    sweep_auth_retention()
+    _next_auth_cleanup = time.monotonic() + 300
 
 
 def sweep():
@@ -79,6 +89,7 @@ def integrations():
 
 def tick():
     sweep()
+    auth_cleanup()
     integrations()
     dispatch()
 
@@ -86,7 +97,7 @@ def tick():
 def main():
     logging.basicConfig(level=logging.INFO)
     mode = os.getenv("WORKER_MODE", "all")
-    operations = {"all": (sweep, integrations, dispatch), "coordination": (sweep, dispatch), "integrations": (integrations,)}
+    operations = {"all": (sweep, auth_cleanup, integrations, dispatch), "coordination": (sweep, auth_cleanup, dispatch), "integrations": (integrations,)}
     if mode not in operations:
         raise ValueError("Unknown WORKER_MODE")
     heartbeat_key = "cfg:integration-worker:heartbeat" if mode == "integrations" else "cfg:worker:heartbeat"

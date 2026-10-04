@@ -103,6 +103,8 @@ jobs:
           PY
       - name: Run real storage, MCP, planning and production smoke tests
         run: python -m pytest tests -v --junitxml=tests/artifacts/verification.xml
+      - name: Verify proxy recovers from a changed backend IP without reload
+        run: python scripts/verify-proxy-dns.py
       - name: Require all six production checks and prohibit skipped tests
         run: |
           python - <<'PY'

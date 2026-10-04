@@ -6,6 +6,7 @@ import hmac
 import secrets
 from urllib.parse import parse_qs, urlencode
 import httpx
+import anyio
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from starlette.responses import JSONResponse
@@ -30,7 +31,7 @@ class OAuthRequestGuard(BaseHTTPMiddleware):
         if request.url.path not in {"/register", "/token", "/authorize", "/revoke"}:
             return await call_next(request)
         try:
-            rate_limit(request, "oauth-" + request.url.path.strip("/"), 120 if request.url.path in {"/token", "/revoke"} else 30)
+            await anyio.to_thread.run_sync(rate_limit, request, "oauth-" + request.url.path.strip("/"), 120 if request.url.path in {"/token", "/revoke"} else 30)
         except HTTPException as error:
             return JSONResponse({"error": "temporarily_unavailable", "error_description": error.detail}, status_code=error.status_code, headers=error.headers)
         if request.method == "POST":
@@ -112,8 +113,8 @@ def check_origin(request):
 
 
 def rate_limit(request, namespace, limit=15):
-    # Use the socket peer, never untrusted forwarding headers. Reverse proxy can
-    # additionally enforce a real-IP limit before forwarding to this service.
+    # Use ASGI's client address, never parse forwarding headers here. Production
+    # exposes the backend only behind the sanitizing gateway/nginx proxy chain.
     peer = request.client.host if request.client else "unknown"
     key = "cfg:auth:" + namespace + ":" + hash_token(peer)
     try:
@@ -295,6 +296,8 @@ def consent(grant_id: str, body: ConsentBody, user=Depends(browser_user), db=Dep
 def github_start(request: Request, db=Depends(db_session, scope="function")):
     if not settings.github_client_id or not settings.github_client_secret:
         raise HTTPException(503, "GitHub OAuth is not configured yet")
+    check_origin(request)
+    rate_limit(request, "github-start", 30)
     user = resolve_cookie(request, db)
     state, cookie, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(32), secrets.token_urlsafe(48)
     db.add(GitHubLoginState(id=state, cookie_hash=hash_token(cookie), verifier=verifier, user_id=user.id if user else None, expires_at=now(db) + timedelta(minutes=10)))
@@ -307,6 +310,7 @@ def github_start(request: Request, db=Depends(db_session, scope="function")):
 
 @router.get("/api/auth/github/callback")
 def github_callback(request: Request, state: str, code: str, db=Depends(db_session, scope="function")):
+    rate_limit(request, "github-callback", 60)
     record = db.scalar(select(GitHubLoginState).where(GitHubLoginState.id == state).with_for_update())
     cookie = request.cookies.get("cfg_github_state", "")
     if not record or record.consumed or record.expires_at <= now(db) or not hmac.compare_digest(record.cookie_hash, hash_token(cookie)):

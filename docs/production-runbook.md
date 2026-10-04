@@ -52,3 +52,21 @@ Before an upgrade, take a backup. Restore first into a new database to validate 
 For rollback, use the previous application image and compatible schema; do not run Alembic downgrade blindly after data has been written. Keep the private environment and volume backups separate from source snapshots.
 
 References: [Docker production configuration](https://docs.docker.com/compose/how-tos/production/), [Compose startup dependencies](https://docs.docker.com/compose/how-tos/startup-order/), [GitHub check runs API](https://docs.github.com/en/rest/checks/runs).
+
+## Authentication retention and refresh replay
+
+The coordination worker sweeps up to 200 old records per class every five minutes. Expired GitHub states remain one day, inactive browser sessions thirty days, and inactive credentials ninety days. Refresh tombstones are preserved through their original expiry plus retention and while a token in their family still has an unexpired lifetime. OAuth clients remain persistent. A failed cleanup prevents a fresh coordination heartbeat and retries on the next worker tick. Migration d76394fa81b2 supplies expiry/revocation indexes.
+
+Reusing a matching unexpired rotated refresh revokes that grant's entire access/refresh family and requires a new consent flow. Clients must serialize refresh calls and avoid blindly retrying an already used token. Wrong client/secret/resource and expired unknown tokens do not revoke a different family.
+
+## Encrypted off-host archive
+
+For this shared host, use the existing SSH alias; the tool never transfers a GitHub account token:
+
+```powershell
+.\backend\.venv\Scripts\python.exe scripts/backup-remote.py --host nextdish-intl --container compute-for-good-postgres-1 --directory C:/Users/kisel/.codex/private/computeforgood/backups --key C:/Users/kisel/.codex/private/computeforgood/backup-encryption.key
+```
+
+The command creates the private key once, verifies PostgreSQL archive magic, encrypts, and checks a decrypted round trip and hashes. Preserve a separate secure copy of the key. To verify recovery, decrypt with Fernet in memory and pipe to `pg_restore --exit-on-error --no-owner` against a newly created isolated database; compare migration revision/counts, then remove only that scratch database. Never restore directly over production during a routine verification.
+
+Manual encrypted snapshot and restore have been checked; a recurring off-host backup schedule and key recovery location are still operator decisions. scripts/backup.ps1 uses unique remote/local filenames and checks the copied checksum; -Project can target an explicit local QA Compose project.
