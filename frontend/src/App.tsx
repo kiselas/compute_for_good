@@ -2940,7 +2940,7 @@ function AccountPage() {
                 {t("Link GitHub to verify that submitted pull requests belong to you.")}
               </p>
               {githubAvailable ? (
-                <a className="button secondary" href="/api/auth/github/start?return_to=%2Faccount">
+                <a className="button secondary" href="/api/auth/github/start">
                   {t("Connect GitHub")} <ArrowUpRight size={16} />
                 </a>
               ) : (

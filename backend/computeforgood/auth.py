@@ -346,7 +346,8 @@ def github_callback(request: Request, state: str, code: str, db=Depends(db_sessi
     if user.suspended or user.is_demo:
         raise HTTPException(403, "Account disabled")
     record.consumed = True
-    result = RedirectResponse(settings.frontend_url + "/connect", status_code=302)
+    destination = "/account" if record.user_id else "/connect"
+    result = RedirectResponse(settings.frontend_url + destination, status_code=302)
     session_response(db, user, result)
     result.delete_cookie("cfg_github_state", path="/api/auth/github")
     event(db, "account.github_connected", user.id, "GitHub identity verified", user.id)
