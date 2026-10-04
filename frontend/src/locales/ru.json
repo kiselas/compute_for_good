@@ -887,5 +887,8 @@
   "Check your connection, then reload this page to try again.": "Проверьте соединение и обновите страницу, чтобы повторить попытку.",
   "Reload page": "Обновить страницу",
   "Loading maintainer workspace…": "Загрузка кабинета владельца…",
-  "Back to account": "Вернуться в аккаунт"
+  "Back to account": "Вернуться в аккаунт",
+  "Checking your session…": "Проверяем сессию…",
+  "Unable to check your session. Please try again.": "Не удалось проверить сессию. Повторите попытку.",
+  "Retry session check": "Проверить сессию ещё раз"
 }

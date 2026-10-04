@@ -887,5 +887,8 @@
   "Check your connection, then reload this page to try again.": "Check your connection, then reload this page to try again.",
   "Reload page": "Reload page",
   "Loading maintainer workspace…": "Loading maintainer workspace…",
-  "Back to account": "Back to account"
+  "Back to account": "Back to account",
+  "Checking your session…": "Checking your session…",
+  "Unable to check your session. Please try again.": "Unable to check your session. Please try again.",
+  "Retry session check": "Retry session check"
 }

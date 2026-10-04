@@ -72,6 +72,8 @@ import { t, useLocale, formatDate, formatNumber } from "./i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
 import { readLeaseToken, writeLeaseToken } from "./leaseStorage";
 import { initialPermitState, permitReducer, permitIsValid, leaseIsUsable, submissionPayload, type SubmissionPermit } from "./permitState";
+import { sessionPhase, type SessionPhase } from "./sessionState";
+import SessionBoundary from "./SessionBoundary";
 
 const MaintainerWorkspace = lazy(() => import("./MaintainerWorkspace"));
 
@@ -79,7 +81,13 @@ const Session = createContext<{
   user: User | null;
   demo: boolean;
   githubAvailable: boolean;
-}>({ user: null, demo: false, githubAvailable: false });
+  phase: SessionPhase;
+  retrySession: () => void;
+}>({ user: null, demo: false, githubAvailable: false, phase: "loading", retrySession: () => {} });
+function SessionGate({ children, compact = false }: { children?: ReactNode; compact?: boolean }) {
+  const { phase, retrySession } = useContext(Session);
+  return <SessionBoundary phase={phase} retry={retrySession} compact={compact}>{children}</SessionBoundary>;
+}
 function useData<T>(path: string, enabled = true) {
   const { user } = useContext(Session);
   return useQuery<T>({
@@ -428,6 +436,7 @@ export default function App() {
     retry: false,
   });
   const user = demo && demoUser ? demoUser : (auth.data?.user ?? null);
+  const phase = sessionPhase({ hasData: auth.data !== undefined, hasUser: !!user, isError: auth.isError });
   setToken(demo && demoUser ? demoUser.token : undefined);
   setCsrfToken(auth.data?.csrf_token);
   const workspace =
@@ -492,6 +501,8 @@ export default function App() {
         user,
         demo,
         githubAvailable: auth.data?.github_available ?? false,
+        phase,
+        retrySession: () => { void auth.refetch(); },
       }}
     >
       <a href="#main" className="skip-link">
@@ -523,7 +534,7 @@ export default function App() {
                   {t("Workspace")} <ArrowUpRight size={15} />
                 </Link>
               </>
-            ) : (
+            ) : phase === "guest" ? (
               <>
                 <Link className="login-link" to="/login">
                   {t("Log in")}{" "}
@@ -532,7 +543,7 @@ export default function App() {
                   {t("Get started")} <ArrowRight size={15} />
                 </Link>
               </>
-            )}
+            ) : <SessionGate compact />}
             <button
               className="icon-button mobile-menu"
               aria-label={mobile ? t("Close navigation") : t("Open navigation")}
@@ -616,17 +627,17 @@ export default function App() {
               <Route path="/tasks/:id" element={<TaskPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/projects/:id" element={<ProjectPage />} />
-              <Route path="/activity" element={<ActivityPage />} />
+              <Route path="/activity" element={<SessionGate><ActivityPage /></SessionGate>} />
               <Route path="/reviews" element={<ReviewsPage />} />
               <Route path="/submissions/:id" element={<SubmissionPage />} />
               <Route path="/connect" element={<ConnectPage />} />
-              <Route path="/account" element={<AccountPage />} />
-              <Route path="/login" element={<AuthPage />} />
-              <Route path="/register" element={<AuthPage register />} />
-              <Route path="/oauth/consent" element={<ConsentPage />} />
+              <Route path="/account" element={<SessionGate><AccountPage /></SessionGate>} />
+              <Route path="/login" element={<SessionGate><AuthPage /></SessionGate>} />
+              <Route path="/register" element={<SessionGate><AuthPage register /></SessionGate>} />
+              <Route path="/oauth/consent" element={<SessionGate><ConsentPage /></SessionGate>} />
               <Route path="/onboarding" element={<MaintainerPage />} />
-              <Route path="/maintainer" element={<MaintainerWorkspaceRoute />} />
-              <Route path="/maintainer/projects/:id" element={<MaintainerWorkspaceRoute />} />
+              <Route path="/maintainer" element={<SessionGate><MaintainerWorkspaceRoute /></SessionGate>} />
+              <Route path="/maintainer/projects/:id" element={<SessionGate><MaintainerWorkspaceRoute /></SessionGate>} />
               <Route path="/about" element={<InfoPage kind="about" />} />
               <Route
                 path="/about/protocol"
@@ -635,7 +646,7 @@ export default function App() {
               <Route path="/people/:username" element={<PublicProfilePage />} />
               <Route path="/privacy" element={<InfoPage kind="privacy" />} />
               <Route path="/terms" element={<InfoPage kind="terms" />} />
-              <Route path="/moderation" element={<ModerationPage />} />
+              <Route path="/moderation" element={<SessionGate><ModerationPage /></SessionGate>} />
               <Route
                 path="*"
                 element={
@@ -1563,7 +1574,7 @@ function TaskPage() {
                     </div>
                   </dl>
                   {!user ? (
-                    <>
+                    <SessionGate>
                       <Link to="/connect" className="button full">
                         {t("Connect your agent")} <ArrowRight size={16} />
                       </Link>
@@ -1572,7 +1583,7 @@ function TaskPage() {
                           "Create an account to claim work and track a contribution in this browser.",
                         )}{" "}
                       </p>
-                    </>
+                    </SessionGate>
                   ) : leaseIsActive && ownLease?.token ? (
                     <>
                       <LeaseClock lease={ownLease} />
@@ -1803,7 +1814,7 @@ function ActivityPage() {
 function SignInEmpty() {
   const location = useLocation();
   return (
-    <Empty
+    <SessionGate><Empty
       title={t("Log in to start contributing")}
       description={t(
         "Create an account to claim work, connect an agent, and independently review contributions.",
@@ -1823,7 +1834,7 @@ function SignInEmpty() {
           {t("Log in")}{" "}
         </Link>
       </div>
-    </Empty>
+    </Empty></SessionGate>
   );
 }
 function SubmissionRow({ submission: s }: { submission: Submission }) {
@@ -3083,7 +3094,7 @@ function ConnectPage() {
                 <CredentialManager onCreated={setAccessToken} />
               </>
             ) : (
-              <>
+              <SessionGate>
                 <p className="muted">
                   {t(
                     "Sign up to get a revocable, scoped credential. Browsing the project catalog does not require an account.",
@@ -3100,7 +3111,7 @@ function ConnectPage() {
                     {t("Log in")}{" "}
                   </Link>
                 </div>
-              </>
+              </SessionGate>
             )}
           </section>
           <section className="panel">
@@ -3412,7 +3423,7 @@ function MaintainerPage() {
               </Link>
             </div>
           ) : !user ? (
-            <>
+            <SessionGate>
               <p className="muted">
                 {t(
                   "Create an account or log in to submit a project you maintain.",
@@ -3429,7 +3440,7 @@ function MaintainerPage() {
                   {t("Log in")}{" "}
                 </Link>
               </div>
-            </>
+            </SessionGate>
           ) : (
             <form
               onSubmit={(e) => {
