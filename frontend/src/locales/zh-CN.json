@@ -887,5 +887,8 @@
   "Check your connection, then reload this page to try again.": "请检查网络连接，然后重新加载此页面以重试。",
   "Reload page": "重新加载页面",
   "Loading maintainer workspace…": "正在加载维护者工作区…",
-  "Back to account": "返回账户"
+  "Back to account": "返回账户",
+  "Checking your session…": "正在检查登录状态…",
+  "Unable to check your session. Please try again.": "无法检查登录状态。请重试。",
+  "Retry session check": "重新检查登录状态"
 }
