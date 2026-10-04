@@ -39,6 +39,12 @@ HTTPServer(('0.0.0.0',8000),Handler).serve_forever()
 
 try:
     docker('network', 'create', network)
+    # Reserve a daemon-selected free subnet, then make it user-configured.
+    # Linux Docker requires explicit IPAM before accepting --ip for the guard;
+    # Docker Desktop also accepts automatically allocated networks.
+    subnet = json.loads(docker('network', 'inspect', network))[0]['IPAM']['Config'][0]['Subnet']
+    docker('network', 'rm', network)
+    docker('network', 'create', '--subnet', subnet, network)
     docker('run', '-d', '--name', old, '--network', network, '--network-alias', 'backend', '-e', 'MARKER=before', backend_image, 'python', '-u', '-c', server)
     old_ip = json.loads(docker('inspect', old))[0]['NetworkSettings']['Networks'][network]['IPAddress']
     docker('run', '-d', '--name', proxy, '--network', network, '-p', '127.0.0.1::80', '-v', str(root / 'frontend/nginx.conf') + ':/etc/nginx/conf.d/default.conf:ro', frontend_image)
