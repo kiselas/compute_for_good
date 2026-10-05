@@ -3531,6 +3531,53 @@ hr {
 
 /* Locale labels may be longer than the English layout, especially on mobile. */
 .maintainer-entry { margin: 0 0 24px; }
+.recognition-panel { margin: 24px 0; }
+.recognition-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+.recognition-heading h2 { margin: 8px 0 0; }
+.recognition-heading h3 { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.recognition-heading > span { font-size: 13px; }
+.recognition-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; padding: 22px 0; border-top: 1px solid #e2e8f2; border-bottom: 1px solid #e2e8f2; }
+.recognition-metrics > div { display: flex; flex-direction: column; gap: 8px; }
+.recognition-metrics strong { font-size: 28px; color: #183467; }
+.recognition-metrics span, .recognition-metrics small { font-size: 12px; line-height: 1.5; color: #596985; }
+.achievement-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.achievement-card { display: flex; gap: 14px; padding: 18px; border: 1px solid #e2e8f2; border-radius: 8px; background: #f8faff; min-width: 0; }
+.achievement-card > div:last-child { min-width: 0; flex: 1; }
+.achievement-card.earned { background: #f1f9f4; border-color: #c9e8d5; }
+.achievement-icon { display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0; border-radius: 12px; background: #e8edf7; color: #61728e; }
+.earned .achievement-icon { color: #247352; background: #dceddf; }
+.achievement-card h4 { margin: 0 0 7px; font-size: 14px; }
+.achievement-card p { color: #596985; font-size: 12px; line-height: 1.6; margin: 0 0 14px; }
+.achievement-progress { display: flex; align-items: center; gap: 12px; }
+.achievement-progress progress { width: 100%; height: 7px; accent-color: #247352; }
+.achievement-progress span { font-size: 11px; white-space: nowrap; color: #596985; }
+.recognition-title { align-items: center; }
+.recognition-title > svg { color: #bd851e; flex-shrink: 0; }
+.leaderboard-controls { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; margin-bottom: 20px; }
+.ranking-switch { display: flex; flex-wrap: wrap; gap: 6px; }
+.ranking-switch button { display: flex; align-items: center; gap: 8px; border: 1px solid #dce4f0; border-radius: 6px; background: #fff; color: #50617f; font: inherit; font-size: 13px; padding: 10px 12px; cursor: pointer; }
+.ranking-switch button[aria-pressed="true"] { color: #2444bd; border-color: #bbc9f2; background: #edf2ff; }
+.ranking-period { display: flex; align-items: center; gap: 12px; color: #50617f; font-size: 13px; }
+.ranking-period select { font: inherit; color: #183467; padding: 10px; background: #fff; border: 1px solid #dce4f0; border-radius: 6px; }
+.ranking-table-scroll { overflow-x: auto; border: 1px solid #e2e8f2; border-radius: 8px; }
+.ranking-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px; }
+.ranking-table caption { text-align: left; padding: 14px 18px; color: #50617f; background: #f8faff; }
+.ranking-table th, .ranking-table td { padding: 16px 18px; border-top: 1px solid #e2e8f2; }
+.ranking-table thead th { font-weight: 500; color: #596985; white-space: nowrap; }
+.ranking-table tbody th a { display: block; overflow-wrap: anywhere; color: #2444bd; text-decoration: none; }
+.ranking-place { display: inline-grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; color: #596985; background: #f2f5fa; }
+.ranking-place.leading { background: #fff4d8; color: #895e10; font-weight: 700; }
+.ranking-footer { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin-top: 20px; font-size: 13px; color: #596985; }
+.recognition-explanation { margin-top: 22px; }
+.recognition-explanation p { color: #596985; line-height: 1.75; font-size: 14px; }
+.ranking-switch button:focus-visible, .ranking-table-scroll:focus-visible, .ranking-period select:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+@media (max-width: 700px) {
+  .recognition-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .achievement-grid { grid-template-columns: minmax(0, 1fr); }
+  .ranking-table th, .ranking-table td { padding: 12px; }
+  .ranking-footer { flex-wrap: wrap; }
+  .recognition-title > svg { display: none; }
+}
 .planning-permission { grid-column: 1 / -1; }
 .planning-permission-hint { grid-column: 1 / -1; margin: 0; }
 .maintainer-workspace { min-width: 0; }

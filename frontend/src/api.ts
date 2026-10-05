@@ -12,6 +12,25 @@ export interface AuthSession {
   csrf_token: string | null;
   github_available?: boolean;
 }
+export interface Reputation {
+  scoring_version: string;
+  as_of: string;
+  is_demo: boolean;
+  metrics: { accepted_contributions: number; accepted_reviews: number; projects_helped: number };
+  acceptance: { accepted: number; decided: number; rate: number | null };
+  achievements: { id: string; metric: string; threshold: number; progress: number; earned: boolean }[];
+}
+export interface Leaderboard {
+  scoring_version: string;
+  as_of: string;
+  is_demo: boolean;
+  metric: string;
+  period: string;
+  limit: number;
+  offset: number;
+  total: number;
+  entries: { username: string; rank: number; metrics: Reputation["metrics"] }[];
+}
 export interface Credential {
   id: string;
   name: string;

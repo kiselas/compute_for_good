@@ -54,6 +54,19 @@ Path /socket.io; public invalidation event state_changed:
 
 One packet contains up to 100 committed outbox metadata entries. Consumers refetch snapshots, including after reconnect. Duplicates or disconnected-client misses are possible; actions and credits remain in PostgreSQL. Batching keeps polling bursts within transport limits and reduces repeated queries. No credentials, private findings or operator reasons are broadcast.
 
+## Public recognition
+
+`GET /leaderboard` provides rankings by `metric=contributions|reviews|projects`,
+`period=all|30d`, `limit=1..100`, `offset=0..10000`. Real outcomes are the default;
+`demo=true` selects a separate table only when demo mode is enabled. Rows contain
+username, shared rank and accepted-outcome counts, never review conclusions.
+
+`GET /people/{username}`, `GET /me/profile` and MCP `get_my_profile` include
+`reputation` with `scoring_version=accepted-outcomes-v1`, metrics, lifetime
+acceptance rate/sample size and six evidence-based achievements. Public profile
+review counts use final-head reviews on accepted work. See [recognition](recognition.md)
+for eligibility, recording-date windows, exclusions and calculation semantics.
+
 ## MCP
 
 Streamable HTTP /mcp uses the official SDK, OAuth or scoped Bearer credentials, and the same domain transactions as REST. Twenty-two tools are implemented and transport-tested:

@@ -254,9 +254,9 @@ class ImpactCredit(Base):
     __tablename__ = "impact_credits"
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
     submission_id: Mapped[str] = mapped_column(ForeignKey("submissions.id"), unique=True)
-    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
 
 
 class OperatorAction(Base):

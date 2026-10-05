@@ -385,8 +385,10 @@ from .github_checks import create_integration_router
 from .operations import create_operations_router
 from .governance import create_governance_router
 from .maintainer_planning import create_planning_router
+from .reputation import create_reputation_router
 api.include_router(create_review_router(database, required_user))
 api.include_router(create_project_router(database, required_user))
+api.include_router(create_reputation_router(database))
 api.include_router(create_integration_router(database, required_user))
 api.include_router(create_operations_router(database, required_user))
 api.include_router(create_governance_router(database, required_user))

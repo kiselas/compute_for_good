@@ -49,6 +49,7 @@ import {
   Terminal,
   Wifi,
   WifiOff,
+  Award,
   X,
 } from "lucide-react";
 import {
@@ -67,6 +68,7 @@ import {
   type Submission,
   type Task,
   type User,
+  type Reputation,
 } from "./api";
 import { t, useLocale, formatDate, formatNumber } from "./i18n";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -74,8 +76,10 @@ import { readLeaseToken, writeLeaseToken } from "./leaseStorage";
 import { initialPermitState, permitReducer, permitIsValid, leaseIsUsable, submissionPayload, type SubmissionPermit } from "./permitState";
 import { sessionPhase, type SessionPhase } from "./sessionState";
 import SessionBoundary from "./SessionBoundary";
+import RecognitionPanel from "./RecognitionPanel";
 
 const MaintainerWorkspace = lazy(() => import("./MaintainerWorkspace"));
+const LeaderboardPage = lazy(() => import("./LeaderboardPage"));
 
 const Session = createContext<{
   user: User | null;
@@ -477,6 +481,7 @@ export default function App() {
     { to: "/activity", label: t("Your activity"), icon: Clock3 },
     { to: "/tasks", label: t("Find work"), icon: Layers3 },
     { to: "/reviews", label: t("Review contributions"), icon: ShieldCheck },
+    { to: "/leaderboard", label: t("Contributor rankings"), icon: Award },
     { to: "/connect", label: t("Connect an agent"), icon: Terminal },
     { to: "/account", label: t("Account & tokens"), icon: Code2 },
     { to: "/onboarding", label: t("For maintainers"), icon: Globe2 },
@@ -517,6 +522,7 @@ export default function App() {
           >
             <NavLink to="/tasks">{t("Find work")}</NavLink>
             <NavLink to="/projects">{t("Projects")}</NavLink>
+            <NavLink to="/leaderboard">{t("Contributor rankings")}</NavLink>
             <Link to="/#how-it-works">{t("How it works")}</Link>
             <Link to="/onboarding">{t("For maintainers")}</Link>
           </nav>
@@ -626,6 +632,7 @@ export default function App() {
               <Route path="/tasks" element={<TasksPage />} />
               <Route path="/tasks/:id" element={<TaskPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
+              <Route path="/leaderboard" element={<Suspense fallback={<p aria-busy="true">{t("Loading rankings…")}</p>}><LeaderboardPage /></Suspense>} />
               <Route path="/projects/:id" element={<ProjectPage />} />
               <Route path="/activity" element={<SessionGate><ActivityPage /></SessionGate>} />
               <Route path="/reviews" element={<ReviewsPage />} />
@@ -2873,6 +2880,7 @@ function AccountPage() {
   const navigate = useNavigate();
   const profile = useData<{
     user: User;
+    reputation: Reputation;
     stats: {
       tasks_claimed: number;
       submissions: number;
@@ -2969,6 +2977,7 @@ function AccountPage() {
                 </span>
               </div>
             </div>
+            {p.reputation && <RecognitionPanel reputation={p.reputation} />}
             {p.projects.length > 0 && (
               <section className="panel">
                 <h2>{t("Your projects")}</h2>
@@ -3603,6 +3612,7 @@ function PublicProfilePage() {
   const { username } = useParams();
   const profile = useData<{
     username: string;
+    reputation: Reputation;
     is_demo: boolean;
     stats: { merged: number; reviews: number; impact_credits: number };
     contributions: Submission[];
@@ -3646,7 +3656,7 @@ function PublicProfilePage() {
               </span>
             </div>
           )}
-          <div className="mini-stats public-profile-stats">
+          {!person.reputation && <div className="mini-stats public-profile-stats">
             <div>
               <strong>{formatNumber(person.stats.merged)}</strong>
               <span>
@@ -3657,13 +3667,14 @@ function PublicProfilePage() {
             </div>
             <div>
               <strong>{formatNumber(person.stats.reviews)}</strong>
-              <span>{t("Independent reviews")}</span>
+              <span>{t("Reviews on accepted work")}</span>
             </div>
             <div>
               <strong>{formatNumber(person.stats.impact_credits)}</strong>
               <span>{t("Recorded impact credits")}</span>
             </div>
-          </div>
+          </div>}
+          {person.reputation && <RecognitionPanel reputation={person.reputation} />}
           <section className="panel">
             <h2>{t("Accepted contributions")}</h2>
             {person.contributions.length ? (
