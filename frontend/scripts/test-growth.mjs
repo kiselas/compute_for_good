@@ -9,12 +9,12 @@ import { renderToStaticMarkup } from 'react-dom/server';
 const require = createRequire(import.meta.url);
 const { MemoryRouter } = require('react-router-dom');
 const { QueryClient, QueryClientProvider } = require('@tanstack/react-query');
-async function load(file) {
+async function load(file, globals = {}) {
   const bundle = await build({ entryPoints: [fileURLToPath(new URL(file, import.meta.url))], bundle: true,
     write: false, format: 'cjs', platform: 'node', packages: 'external', jsx: 'automatic' });
   const module = { exports: {} };
   vm.runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports, require, console,
-    setTimeout, clearTimeout, setInterval, clearInterval, URL, URLSearchParams, AbortController });
+    setTimeout, clearTimeout, setInterval, clearInterval, URL, URLSearchParams, AbortController, ...globals });
   return module.exports;
 }
 const calendar = await load('../src/ActivityCalendar.tsx');
@@ -69,4 +69,21 @@ test('sprint card uses accepted outcomes and available task counts, without fake
   assert.match(result, /<progress value="0" max="3"/);
   assert.match(result, /0 of 3 tasks accepted/);
   assert.match(result, /3 available tasks/);
+});
+
+test('owner sprint mutations reach the real HTTP adapter as contracts, never RequestInit wrappers', async () => {
+  const requests = [];
+  const builder = await load('../src/SprintBuilder.tsx', { fetch: async (url, init) => {
+    requests.push({ url, ...init });
+    return { ok: true, status: 200, json: async () => ({ status: 'PUBLISHED' }) };
+  } });
+  const contract = { slug: 'first-contribution', title: { en: 'First', ru: 'Первый', 'zh-CN': '第一次' }, task_ids: ['task-1'] };
+  await builder.saveSprint('/maintainer/projects/project-1/sprints', contract);
+  await builder.saveSprint('/maintainer/projects/project-1/sprints/sprint-1/publish', { version: 1 });
+  await builder.saveSprint('/maintainer/projects/project-1/sprints/sprint-1/pause', { version: 2 });
+  assert.deepEqual(JSON.parse(requests[0].body), contract);
+  assert.deepEqual(JSON.parse(requests[1].body), { version: 1 });
+  assert.deepEqual(JSON.parse(requests[2].body), { version: 2 });
+  assert.equal(requests[0].url, '/api/maintainer/projects/project-1/sprints');
+  assert.ok(requests.every(r => r.method === 'POST' && r.credentials === 'include' && r.headers['Content-Type'] === 'application/json'));
 });

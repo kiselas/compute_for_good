@@ -5,6 +5,10 @@ import { api, type Task } from "./api";
 import { t, useLocale } from "./i18n";
 import type { Sprint } from "./SprintPage";
 
+export function saveSprint(path: string, body: unknown) {
+  return api(path, body);
+}
+
 export default function SprintBuilder({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
   const { locale } = useLocale();
   const client = useQueryClient();
@@ -14,7 +18,7 @@ export default function SprintBuilder({ projectId, tasks }: { projectId: string;
   const query = useQuery<Sprint[]>({ queryKey: [path], queryFn: () => api(path) });
   async function run(url: string, body: unknown) {
     setBusy(true); setError("");
-    try { await api(url, { method: "POST", body: JSON.stringify(body) }); await client.invalidateQueries({ queryKey: [path] }); await client.invalidateQueries({ queryKey: ["/sprints?demo=false"] }); return true; }
+    try { await saveSprint(url, body); await client.invalidateQueries({ queryKey: [path] }); await client.invalidateQueries({ queryKey: ["/sprints?demo=false"] }); return true; }
     catch (e) { setError(e instanceof Error ? e.message : t("Unable to save sprint")); return false; }
     finally { setBusy(false); }
   }
