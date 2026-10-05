@@ -172,6 +172,20 @@ def test_new_user_has_no_rank_or_invented_acceptance(recognition):
         assert profile_reputation(db, db.get(User, user.id))["metrics"] == reputation["metrics"]
 
 
+def test_suspension_between_lookup_and_snapshot_fails_cleanly(recognition):
+    from fastapi import HTTPException
+    f = recognition
+    user = f.user()
+    with f.factory() as lookup:
+        stale_user = lookup.get(User, user.id)
+        assert stale_user.suspended is False
+        with f.factory.begin() as moderation:
+            moderation.get(User, user.id).suspended = True
+        with pytest.raises(HTTPException) as error:
+            profile_reputation(lookup, stale_user)
+        assert error.value.status_code == 404
+
+
 @pytest.mark.parametrize("params", [{"metric": "points"}, {"period": "year"}, {"limit": 101}, {"limit": 0}, {"offset": -1}, {"offset": 10001}])
 def test_public_query_bounds(recognition, params):
     assert recognition.client.get("/api/leaderboard", params=params).status_code == 422

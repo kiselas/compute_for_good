@@ -69,7 +69,11 @@ def metrics_query(is_demo, *, since=None, as_of=None):
 
 def profile_reputation(db, user):
     as_of = s.now(db)
-    row = db.execute(metrics_query(user.is_demo, as_of=as_of).where(User.id == user.id)).mappings().one()
+    row = db.execute(metrics_query(user.is_demo, as_of=as_of).where(User.id == user.id)).mappings().one_or_none()
+    # Suspension can commit between authentication/profile lookup and this
+    # statement. A stale ORM identity must not turn that boundary into a 500.
+    if row is None:
+        s.fail(404, "Contributor profile not found")
     metrics = {key: int(row[key]) for key in ("accepted_contributions", "accepted_reviews", "projects_helped")}
     declined = db.scalar(select(func.count()).select_from(Submission)
                          .join(Task, Task.id == Submission.task_id).join(Project, Project.id == Task.project_id)
