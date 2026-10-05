@@ -123,7 +123,7 @@ def activity_day(db, user, day):
 def badge(label, value, demo=False):
     # All text is escaped and bounded. SVG contains no links, scripts or external assets.
     label = ("DEMO · " if demo else "") + label
-    return f'<svg xmlns="http://www.w3.org/2000/svg" width="420" height="32" role="img" aria-label="{escape(label)}: {escape(value)}"><title>{escape(label)}: {escape(value)}</title><rect width="420" height="32" rx="6" fill="#102b28"/><rect x="270" width="150" height="32" rx="6" fill="#157450"/><g font-family="Verdana,Arial,sans-serif" font-size="12" fill="#fff" text-anchor="middle"><text x="135" y="21">{escape(label)}</text><text x="345" y="21">{escape(value)}</text></g></svg>'
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="420" height="32" role="img" aria-label="{escape(label)}: {escape(value)}"><title>{escape(label)}: {escape(value)}</title><rect width="420" height="32" rx="6" fill="#102b28"/><rect x="190" width="230" height="32" rx="6" fill="#157450"/><g font-family="Verdana,Arial,sans-serif" font-size="12" fill="#fff" text-anchor="middle"><text x="95" y="21">{escape(label)}</text><text x="305" y="21">{escape(value)}</text></g></svg>'
 
 
 def evidence_html(value, lang):
