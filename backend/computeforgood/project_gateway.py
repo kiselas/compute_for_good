@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text
 from .models import ImpactCredit, Lease, Project, Review, Submission, User
 from . import services as s
+from .reputation import accepted_outcomes, profile_reputation
 
 
 class ProjectApplication(BaseModel):
@@ -62,6 +63,7 @@ def create_project_router(database, required_user):
                           "reviews": count(Review, Review.reviewer_id == user.id),
                           "merged": count(Submission, (Submission.author_id == user.id) & (Submission.status == "MERGED")),
                           "impact_credits": count(ImpactCredit, ImpactCredit.user_id == user.id)},
+                "reputation": profile_reputation(db, user),
                 "projects": [s.project_dto(p) for p in db.scalars(select(Project).where(Project.maintainer_id == user.id).order_by(Project.name)).all()]}
 
     @router.get("/people/{username}")
@@ -70,12 +72,15 @@ def create_project_router(database, required_user):
         user = db.scalar(select(User).where(func.lower(User.username) == username.lower(), User.suspended.is_(False)))
         if not user or (user.is_demo and not settings.demo_mode):
             raise HTTPException(404, "Contributor profile not found")
-        merged = db.scalars(select(Submission).where(Submission.author_id == user.id, Submission.status == "MERGED", Submission.is_demo == user.is_demo).order_by(Submission.created_at.desc()).limit(20)).all()
-        reviews = db.scalar(select(func.count()).select_from(Review).join(Submission).where(Review.reviewer_id == user.id, Submission.is_demo == user.is_demo))
-        credits = db.scalar(select(func.count()).select_from(ImpactCredit).where(ImpactCredit.user_id == user.id, ImpactCredit.is_demo == user.is_demo))
-        count = db.scalar(select(func.count()).select_from(Submission).where(Submission.author_id == user.id, Submission.status == "MERGED", Submission.is_demo == user.is_demo))
+        reputation = profile_reputation(db, user)
+        outcomes = accepted_outcomes(user.is_demo, as_of=reputation["as_of"])
+        merged = db.scalars(select(Submission).join(outcomes, outcomes.c.submission_id == Submission.id)
+                            .where(Submission.author_id == user.id).order_by(outcomes.c.credited_at.desc(), Submission.id).limit(20)).all()
+        count = reputation["metrics"]["accepted_contributions"]
+        reviews = reputation["metrics"]["accepted_reviews"]
+        credits = count
         return {"username": user.username, "is_demo": user.is_demo, "stats": {"merged": count, "reviews": reviews, "impact_credits": credits},
-                "contributions": [s.submission_dto(db, row) for row in merged],
+                "reputation": reputation, "contributions": [s.submission_dto(db, row) for row in merged],
                 "projects": [s.project_dto(p) for p in db.scalars(select(Project).where(Project.maintainer_id == user.id, Project.status == "VERIFIED", Project.is_demo == user.is_demo)).all()]}
 
     return router

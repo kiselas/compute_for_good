@@ -275,12 +275,13 @@ def create_mcp_app():
 
     @server.tool()
     async def get_my_profile(ctx: Context) -> dict:
-        """Read actual contribution counts, reliability events and active implementation leases."""
+        """Read contribution counts, outcome-based reputation, achievements and active leases."""
         def operation(db, user):
+            from .reputation import profile_reputation
             def count(model, *conditions):
                 return db.scalar(select(func.count()).select_from(model).where(*conditions))
             active = db.scalars(select(Lease).where(Lease.user_id == user.id, Lease.status == 'ACTIVE', Lease.expires_at > func.clock_timestamp())).all()
-            return {'user': {'id': user.id, 'username': user.username}, 'model_tier': user.model_tier, 'active_leases': [services.lease_dto(row) for row in active], 'submissions': count(Submission, Submission.author_id == user.id), 'merged': count(Submission, Submission.author_id == user.id, Submission.status == 'MERGED'), 'reviews': count(Review, Review.reviewer_id == user.id), 'merge_credits': count(ImpactCredit, ImpactCredit.user_id == user.id), 'released': count(Lease, Lease.user_id == user.id, Lease.status == 'RELEASED'), 'expired': count(Lease, Lease.user_id == user.id, Lease.status == 'EXPIRED')}
+            return {'user': {'id': user.id, 'username': user.username}, 'model_tier': user.model_tier, 'active_leases': [services.lease_dto(row) for row in active], 'submissions': count(Submission, Submission.author_id == user.id), 'merged': count(Submission, Submission.author_id == user.id, Submission.status == 'MERGED'), 'reviews': count(Review, Review.reviewer_id == user.id), 'merge_credits': count(ImpactCredit, ImpactCredit.user_id == user.id), 'released': count(Lease, Lease.user_id == user.id, Lease.status == 'RELEASED'), 'expired': count(Lease, Lease.user_id == user.id, Lease.status == 'EXPIRED'), 'reputation': profile_reputation(db, user)}
         return await transaction(ctx, operation)
 
     @server.tool()
