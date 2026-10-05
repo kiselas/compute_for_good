@@ -122,6 +122,30 @@ class Task(Base):
     __table_args__ = (CheckConstraint("estimated_minutes > 0"), CheckConstraint("risk IN ('LOW','NORMAL','HIGH','CRITICAL')"), CheckConstraint("required_model_tier IN ('BASIC','STRONG','FRONTIER')"))
 
 
+class Sprint(Base):
+    __tablename__ = "sprints"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
+    project_id: Mapped[str] = mapped_column(ForeignKey("projects.id"), index=True)
+    slug: Mapped[str] = mapped_column(String(80), unique=True)
+    title: Mapped[dict] = mapped_column(JSON)
+    description: Mapped[dict] = mapped_column(JSON)
+    starts_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    response_hours: Mapped[int] = mapped_column(Integer, default=48)
+    status: Mapped[str] = mapped_column(String(20), default="DRAFT")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    __table_args__ = (CheckConstraint("ends_at > starts_at"), CheckConstraint("response_hours BETWEEN 1 AND 168"),
+                     CheckConstraint("status IN ('DRAFT','PUBLISHED','PAUSED')"))
+
+
+class SprintTask(Base):
+    __tablename__ = "sprint_tasks"
+    sprint_id: Mapped[str] = mapped_column(ForeignKey("sprints.id"), primary_key=True)
+    task_id: Mapped[str] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+
+
 class Lease(Base):
     __tablename__ = "leases"
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)

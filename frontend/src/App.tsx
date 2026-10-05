@@ -50,6 +50,7 @@ import {
   Wifi,
   WifiOff,
   Award,
+  Flag,
   X,
 } from "lucide-react";
 import {
@@ -77,9 +78,12 @@ import { initialPermitState, permitReducer, permitIsValid, leaseIsUsable, submis
 import { sessionPhase, type SessionPhase } from "./sessionState";
 import SessionBoundary from "./SessionBoundary";
 import RecognitionPanel from "./RecognitionPanel";
+import ContributionShare, { ReadmeBadge } from "./ShareTools";
 
 const MaintainerWorkspace = lazy(() => import("./MaintainerWorkspace"));
 const LeaderboardPage = lazy(() => import("./LeaderboardPage"));
+const SprintPage = lazy(() => import("./SprintPage"));
+const ActivityCalendar = lazy(() => import("./ActivityCalendar"));
 
 const Session = createContext<{
   user: User | null;
@@ -482,6 +486,7 @@ export default function App() {
     { to: "/tasks", label: t("Find work"), icon: Layers3 },
     { to: "/reviews", label: t("Review contributions"), icon: ShieldCheck },
     { to: "/leaderboard", label: t("Contributor rankings"), icon: Award },
+    { to: "/sprints", label: t("Contribution sprints"), icon: Flag },
     { to: "/connect", label: t("Connect an agent"), icon: Terminal },
     { to: "/account", label: t("Account & tokens"), icon: Code2 },
     { to: "/onboarding", label: t("For maintainers"), icon: Globe2 },
@@ -523,6 +528,7 @@ export default function App() {
             <NavLink to="/tasks">{t("Find work")}</NavLink>
             <NavLink to="/projects">{t("Projects")}</NavLink>
             <NavLink to="/leaderboard">{t("Contributor rankings")}</NavLink>
+            <NavLink to="/sprints">{t("Contribution sprints")}</NavLink>
             <Link to="/#how-it-works">{t("How it works")}</Link>
             <Link to="/onboarding">{t("For maintainers")}</Link>
           </nav>
@@ -633,6 +639,8 @@ export default function App() {
               <Route path="/tasks/:id" element={<TaskPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route path="/leaderboard" element={<Suspense fallback={<p aria-busy="true">{t("Loading rankings…")}</p>}><LeaderboardPage /></Suspense>} />
+              <Route path="/sprints" element={<Suspense fallback={<p aria-busy="true">{t("Loading sprints…")}</p>}><SprintPage /></Suspense>} />
+              <Route path="/sprints/:slug" element={<Suspense fallback={<p aria-busy="true">{t("Loading sprints…")}</p>}><SprintPage /></Suspense>} />
               <Route path="/projects/:id" element={<ProjectPage />} />
               <Route path="/activity" element={<SessionGate><ActivityPage /></SessionGate>} />
               <Route path="/reviews" element={<ReviewsPage />} />
@@ -1292,6 +1300,7 @@ function ProjectPage() {
               <strong>{p.is_demo ? `${formatNumber(p.impact_score)}/100` : t("Not scored")}</strong>
             </span>
           </div>
+          {p.status === "VERIFIED" && <ReadmeBadge projectId={p.id} />}
           {user && (user.id === p.maintainer_id || user.role === "operator") && (
             <Link className="button secondary" to={`/maintainer/projects/${p.slug}`}>
               {t("Manage project")} <ArrowRight size={16} />
@@ -2930,6 +2939,8 @@ function AccountPage() {
           {t("View public profile")} <ArrowUpRight size={15} />
         </Link>
       </div>
+      <ReadmeBadge username={user.username} />
+      <Suspense fallback={<p aria-busy="true">{t("Loading activity…")}</p>}><ActivityCalendar username={user.username} /></Suspense>
       {!demo && (
         <section className="panel">
           <div className="panel-heading">
@@ -3675,6 +3686,8 @@ function PublicProfilePage() {
             </div>
           </div>}
           {person.reputation && <RecognitionPanel reputation={person.reputation} />}
+          <Suspense fallback={<p aria-busy="true">{t("Loading activity…")}</p>}><ActivityCalendar username={person.username} /></Suspense>
+          <ReadmeBadge username={person.username} />
           <section className="panel">
             <h2>{t("Accepted contributions")}</h2>
             {person.contributions.length ? (
@@ -3685,7 +3698,7 @@ function PublicProfilePage() {
                       className="inline-link"
                       to={`/submissions/${contribution.id}`}
                     >
-                      {contribution.task_id} <ArrowUpRight size={15} />
+                      {contribution.task_title ?? contribution.task_id} <ArrowUpRight size={15} />
                     </Link>
                     <p className="small-print">
                       {t(
@@ -3700,6 +3713,7 @@ function PublicProfilePage() {
                       <Badge tone="amber">{t("Demo record")}</Badge>
                     )}
                   </div>
+                  <ContributionShare id={contribution.id} title={contribution.task_title} />
                   <a
                     className="button secondary small"
                     href={contribution.pr_url}

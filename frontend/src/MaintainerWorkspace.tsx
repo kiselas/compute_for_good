@@ -4,6 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CheckCircle2, Flag, Layers3, Plus, ShieldCheck } from "lucide-react";
 import { api, ApiError, type Project, type Task, type Submission } from "./api";
 import { t, useLocale, formatNumber } from "./i18n";
+import SprintBuilder from "./SprintBuilder";
 
 interface Goal {
   id: string; title: string; description: string; priority: number;
@@ -118,6 +119,7 @@ export default function MaintainerWorkspace({ projectId, user }: { projectId?: s
       <strong>{t(ready ? "Repository verified" : "Prepare the roadmap before publication")}</strong>
       <p>{t(ready ? "Publication still checks the project's readiness, task scope, and approved improvement." : "Your plan and drafts are private working material. An operator must verify repository ownership and readiness before tasks can be published.")}</p>
     </div><span className="badge">{readable(data.project.status)}</span></section>
+    <SprintBuilder projectId={data.project.id} tasks={data.tasks} />
     <div className="maintainer-tabs" role="tablist" aria-label={t("Project planning views")}>
       {([ ["goals", "Goals", data.goals.length], ["improvements", "Improvements", data.improvements.length], ["tasks", "Tasks", data.tasks.length], ["results", "Results", data.tasks.filter(task => task.status === "MERGED").length] ] as const).map(([id, title, count]) =>
         <button key={id} type="button" role="tab" id={`maintainer-tab-${id}`} aria-selected={tab === id} aria-controls={`maintainer-panel-${id}`} tabIndex={tab === id ? 0 : -1} className={tab === id ? "active" : ""} onClick={() => setTab(id)} onKeyDown={event => {
