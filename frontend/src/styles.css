@@ -110,6 +110,7 @@ a {
   margin: 0 auto;
   padding: 0 40px;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 25px;
@@ -141,6 +142,7 @@ a {
 }
 .public-nav {
   display: flex;
+  flex: 1 1 340px;
   flex-wrap: wrap;
   min-width: 0;
   gap: 28px;
@@ -154,6 +156,8 @@ a {
 }
 .public-header-actions {
   display: flex;
+  flex-shrink: 0;
+  margin-left: auto;
   align-items: center;
   gap: 19px;
 }
@@ -1981,7 +1985,8 @@ hr {
     padding-top: 90px;
   }
   .public-header {
-    height: 94px;
+    height: auto;
+    min-height: 94px;
   }
 }
 @media (max-width: 1100px) {
