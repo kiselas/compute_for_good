@@ -34,12 +34,13 @@ Stopping preserves the database. Avoid deleting volumes when work must be retain
 - [Russian, English and Simplified Chinese interface](docs/i18n.md)
 - [Maintainer goals, improvement proposals, task publication and acceptance](docs/maintainer-flow.md)
 - [HTTP, authorization, MCP and notification contract](docs/api-contract.md)
+- [Activity calendar, result cards, README badges and contribution sprints](docs/public-growth.md)
 - [Original product specification](docs/product/spec-v0.1.md)
 - [Initial implementation plan](docs/implementation-plan.md)
 
 Implemented: public landing/catalogs, registration/login, GitHub account linking adapter, personal credentials and MCP OAuth, work/review leases, current-SHA reviews, revisions and independent finding resolution, project applications, maintainer planning and acceptance, profiles, operator controls, signed GitHub delivery retries and current-SHA CI reconciliation. The maintainer workspace is at `/maintainer`: owners set goals, approve improvements and explicitly publish task drafts. Planning MCP tools require the optional `project:plan` permission and cannot approve or publish. Production Compose uses Caddy HTTPS, private service networking, demo-free storage, readiness checks and persistent volumes.
 
-Public advertising remains gated on the chosen server/domain, actual HTTPS, GitHub configuration, a real verified project/PR/merge and an external MCP-client check. Local production-mode tests do not establish public availability. GitHub remote setup and hosted Actions have deliberately not been performed.
+The service is deployed at https://compute-for-good.tech with HTTPS and GitHub Actions deployment. A real first contribution has completed the PR/review/acceptance/merge cycle. Public profiles include outcome-based recognition and activity calendars; accepted results have shareable evidence and downloadable cards. README badges and owner-curated sprints connect that evidence to available work. The first sprint prepares three documentation tasks in this repository. This is a limited pilot: broad promotion still needs a larger approved backlog, external-client onboarding checks and demonstrated operational capacity.
 
 ## Verification and development
 

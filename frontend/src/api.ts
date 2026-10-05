@@ -99,6 +99,7 @@ export interface Review {
   is_current: boolean;
 }
 export interface Submission {
+  task_title?: string;
   id: string;
   task_id: string;
   author_id: string;

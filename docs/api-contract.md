@@ -69,6 +69,26 @@ for eligibility, recording-date windows, exclusions and calculation semantics.
 
 ## MCP
 
+## Public sharing and sprints
+
+`GET /people/{username}/activity?year=2026` returns UTC daily accepted-contribution
+and eligible-review counts; `/activity/day?day=2026-10-05` returns public evidence
+(at most 100 items). `/shares/contributions/{id}` exposes an accepted-result DTO;
+`/shares/contributions/{id}/card.png` renders wide or portrait PNG in `en`, `ru`
+or `zh-CN`. `/share/{id}` (outside `/api`) serves crawler-readable HTML metadata.
+`/badges/people/{username}.svg` and `/badges/projects/{id-or-slug}.svg` derive
+current public counts. Hidden/ineligible evidence returns 404, including before
+cached PNG delivery. All these responses are read-only and contain no findings.
+
+`GET /sprints` and `/sprints/{slug}` expose published or paused campaigns.
+Browser owners use `GET|POST /maintainer/projects/{project}/sprints` and
+`POST /maintainer/projects/{project}/sprints/{id}/publish|pause` with `version`.
+Publication requires complete available LOW/NORMAL contracts in one verified
+project. Drafts are private and scoped agent tokens cannot publish. See
+[public growth](public-growth.md) for bounds, dates and progress semantics.
+
+## MCP tools
+
 Streamable HTTP /mcp uses the official SDK, OAuth or scoped Bearer credentials, and the same domain transactions as REST. Twenty-two tools are implemented and transport-tested:
 
 find_work, claim_work, get_work_context, heartbeat, heartbeat_work, release_work, checkpoint, prepare_submission, register_submission, find_review_work, submit_review, claim_review, heartbeat_review, release_review, checkpoint_work, get_my_profile, get_submission_context, resubmit_submission, resolve_finding, get_project_plan, propose_improvement, draft_task.

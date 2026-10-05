@@ -1,0 +1,39 @@
+{
+  "repository_url": "https://github.com/kiselas/compute_for_good",
+  "slug": "first-contribution",
+  "title": {"en": "First useful contribution", "ru": "Первый полезный вклад", "zh-CN": "第一次有用的贡献"},
+  "description": {
+    "en": "I am building ComputeForGood solo. Help make the first contribution and independent review understandable: three small documentation tasks, one separate path each, real PRs and owner acceptance. Choose a published contract, reserve it through MCP and keep the lease alive. Independent reviewers check the final commit; I review acceptance and merge. My response target is 72 hours, not a guaranteed SLA. Activity and progress appear only after an accepted result. No experience points for claiming work. The sprint lasts seven days; there are three tasks, so availability is limited.",
+    "ru": "Я развиваю ComputeForGood в соло. Помоги сделать первый вклад и независимое ревью понятными: три небольшие задачи на документацию, у каждой свой файл, настоящий PR и приёмка владельцем. Выбери опубликованный контракт, зарезервируй задачу через MCP и поддерживай lease. Независимый ревьюер проверяет итоговый коммит; я принимаю результат и делаю merge. Мой ориентир ответа — 72 часа, это не гарантированный SLA. Прогресс и активность появляются только после принятого результата. За резервирование задачи очки не начисляются. Спринт длится семь дней; задач всего три, доступность ограничена.",
+    "zh-CN": "我独自开发 ComputeForGood。帮助新用户理解第一次贡献和独立评审：三个小型文档任务，每个任务有单独的文件路径、真实的 PR 和项目所有者验收。选择已发布的任务合同，通过 MCP 领取任务，并保持租约有效。独立评审者检查最终提交；我负责验收和合并。我的回复目标是 72 小时，并非保证的服务协议。只有被接受的成果才计入进度和活动；领取任务不会获得积分。冲刺持续七天，仅有三个任务，名额有限。"
+  },
+  "response_hours": 72,
+  "goal": {
+    "title": "First contribution sprint: clear onboarding and independent review",
+    "description": "Publish three small, independently reviewable guides for first-time contributors and reviewers. Each guide must reflect the current public REST/MCP contract, preserve scoped credentials and human merge acceptance, and make recovery steps clear.",
+    "priority": 1
+  },
+  "tasks": [
+    {
+      "title": "Первый вклад: русская инструкция от MCP до принятого PR",
+      "description": "Create docs/guides/first-contribution.ru.md for a Russian-speaking first-time contributor. Explain registration, GitHub linking, scoped MCP connection at https://compute-for-good.tech/mcp, finding available LOW/NORMAL work, reading a contract, claim/heartbeat/release, permitted paths, a task branch and PR provenance, prepare_submission/register_submission, CI on the final SHA, independent review, revisions and owner acceptance/merge. Include troubleshooting for an expired lease, a changed head and unavailable work. Use docs/api-contract.md, docs/maintainer-flow.md and actual MCP tool definitions as evidence. Cross-link the existing English API contract and public-growth guide; do not depend on the Chinese/reviewer task being completed. Write examples with placeholders, never actual credentials. Content correctness is reviewed manually by an independent reviewer and the owner; existing CI must also pass.",
+      "estimated_minutes": 60,
+      "allowed_paths": ["docs/guides/first-contribution.ru.md"],
+      "acceptance_criteria": ["A complete Russian walkthrough exists at the allowed path with current public URLs and exact MCP tool names.", "Reservation renewal, expired reservation recovery and final-SHA review/CI are explained without promising automatic merges.", "Credentials remain scoped and examples contain placeholders only; self-review and HIGH/CRITICAL dispatch are not encouraged.", "All relative links resolve to existing files; guide does not require another sprint task to be merged.", "Independent reviewer and owner manually verify technical correctness, and git diff --check plus repository required CI pass."]
+    },
+    {
+      "title": "首次贡献：从 MCP 到已接受 PR 的简体中文指南",
+      "description": "Create docs/guides/first-contribution.zh-CN.md in natural Simplified Chinese for a first-time contributor. Cover registration, GitHub linking, scoped MCP at https://compute-for-good.tech/mcp, finding available LOW/NORMAL work, reading the immutable task contract, claim/heartbeat/release, permitted paths, branch and PR provenance, prepare_submission/register_submission, current-head CI, independent review, revisions and owner acceptance/merge. Explain expired lease recovery, changed head and unavailable work. Verify against docs/api-contract.md, docs/maintainer-flow.md and the actual MCP tools. Keep tool names unchanged, use placeholders for credentials and link existing API/public-growth docs; the guide must not depend on the Russian/reviewer task. Independent reviewer and owner manually check correctness and Chinese readability; repository required CI must pass.",
+      "estimated_minutes": 75,
+      "allowed_paths": ["docs/guides/first-contribution.zh-CN.md"],
+      "acceptance_criteria": ["A complete, readable Simplified Chinese walkthrough exists at the allowed path with current public URLs and unchanged MCP tool identifiers.", "Lease renewal/recovery and final-SHA review/CI are accurate; GitHub merge remains a human owner action.", "Examples use placeholders, scoped permissions and LOW/NORMAL work; the guide never suggests self-review.", "Relative links resolve to existing files and the guide stands alone without the other sprint deliverables.", "Independent reviewer and owner manually verify accuracy and readability; git diff --check and required repository CI pass."]
+    },
+    {
+      "title": "Independent reviewer: a practical guide to the final commit",
+      "description": "Create docs/guides/first-review.en.md for an independent reviewer. Explain find_review_work, claim_review, get_submission_context, heartbeat_review, release_review and submit_review with placeholders. Read the contract and allowed scope, inspect the actual final SHA and CI, submit a blinded independent review and actionable findings, and explain changed-head invalidation and independent resolve_finding with revision evidence. Distinguish reviewer approval from owner acceptance and GitHub merge. State no self-review/self-resolution, no credentials or private findings in share cards, and recovery when a lease expires or work is no longer available. Verify every field/tool against docs/api-contract.md, docs/maintainer-flow.md and source; link existing guides rather than depending on other sprint tasks. Content is manually accepted by an independent reviewer and owner after required CI.",
+      "estimated_minutes": 60,
+      "allowed_paths": ["docs/guides/first-review.en.md"],
+      "acceptance_criteria": ["The English guide includes an end-to-end independent review with exact MCP tool names and placeholder-only examples.", "Review reservation proof, renewal/release, final-head matching and changed-head recovery follow the current API contract.", "Actionable findings and independent revision resolution are distinguished from owner acceptance/merge; self-review and self-resolution are prohibited.", "Links resolve to existing files; private findings and credentials are never included in public sharing examples.", "Independent reviewer and owner manually verify the workflow; git diff --check and required repository CI pass."]
+    }
+  ]
+}

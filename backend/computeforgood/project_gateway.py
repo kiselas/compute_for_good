@@ -4,7 +4,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select, text
-from .models import ImpactCredit, Lease, Project, Review, Submission, User
+from .models import ImpactCredit, Lease, Project, Review, Submission, Task, User
 from . import services as s
 from .reputation import accepted_outcomes, profile_reputation
 
@@ -80,7 +80,7 @@ def create_project_router(database, required_user):
         reviews = reputation["metrics"]["accepted_reviews"]
         credits = count
         return {"username": user.username, "is_demo": user.is_demo, "stats": {"merged": count, "reviews": reviews, "impact_credits": credits},
-                "reputation": reputation, "contributions": [s.submission_dto(db, row) for row in merged],
+                "reputation": reputation, "contributions": [{**s.submission_dto(db, row), "task_title": db.get(Task, row.task_id).title} for row in merged],
                 "projects": [s.project_dto(p) for p in db.scalars(select(Project).where(Project.maintainer_id == user.id, Project.status == "VERIFIED", Project.is_demo == user.is_demo)).all()]}
 
     return router

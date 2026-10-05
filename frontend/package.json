@@ -10,7 +10,8 @@
     "test:permit": "node --test scripts/test-permit-state.mjs",
     "test:session": "node --test scripts/test-session-state.mjs",
     "test:recognition": "node --test scripts/test-recognition.mjs",
-    "build": "npm run check:i18n && npm run test:storage && npm run test:permit && npm run test:session && npm run test:recognition && tsc -b && vite build",
+    "test:growth": "node --test scripts/test-growth.mjs",
+    "build": "npm run check:i18n && npm run test:storage && npm run test:permit && npm run test:session && npm run test:recognition && npm run test:growth && tsc -b && vite build",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
