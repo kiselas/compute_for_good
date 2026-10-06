@@ -75,8 +75,8 @@ test('recognition renders earned and locked achievements with accessible progres
   assert.match(result, /achievement-card earned/);
   assert.match(result, /achievement-card locked/);
   assert.match(result, /<progress value="1" max="5" aria-label="The fifth element"/);
-  assert.match(result, /In the collection/);
-  assert.match(result, /Quest in progress/);
+  assert.match(result, /Earned/);
+  assert.match(result, /Getting there/);
   assert.match(result, /Five accepted contributions\./);
   assert.match(result, /1 of 3 earned/);
   assert.match(result, /1 decided submissions/);
@@ -85,15 +85,15 @@ test('all six illustrated goals preserve server progress and do not invent earne
   const ids = ['first_contribution', 'five_contributions', 'ten_contributions', 'cross_project', 'first_review', 'five_reviews'];
   const result = renderRecognition({ ...reputation, achievements: ids.map((id, i) => ({ id, threshold: [1, 5, 10, 3, 1, 5][i], progress: 0, earned: false })) });
   assert.equal((result.match(/achievement-card locked/g) ?? []).length, 6);
-  assert.doesNotMatch(result, /achievement-card earned|In the collection/);
+  assert.doesNotMatch(result, /achievement-card earned|Earned/);
   assert.equal((result.match(/<progress value="0"/g) ?? []).length, 6);
-  assert.equal((result.match(/alt="" width="128" height="128" loading="lazy"/g) ?? []).length, 6);
-  for (const id of ids) assert.ok(result.includes(`/images/achievements/${id}-v1.webp`));
+  assert.equal((result.match(/alt="" width="96" height="96" loading="lazy"/g) ?? []).length, 6);
+  for (const id of ids) assert.ok(result.includes(`/images/achievements/${id}-v2.webp`));
 });
 test('Russian and Chinese achievement copy keeps clear unlock conditions alongside the joke', async () => {
   for (const [locale, title, condition, status] of [
-    ['ru', 'Да пребудет с тобой merge', 'Один вклад принят владельцем проекта.', 'В коллекции'],
-    ['zh-CN', '愿合并与你同在', '一项贡献已被维护者接受。', '已收入收藏'],
+    ['ru', 'Первый merge', 'Один вклад принят владельцем проекта.', 'Получено'],
+    ['zh-CN', '首次合并', '一项贡献已被维护者接受。', '已获得'],
   ]) {
     const LocalRecognition = await load('../src/RecognitionPanel.tsx', locale);
     const result = renderToStaticMarkup(React.createElement(MemoryRouter, null, React.createElement(LocalRecognition, { reputation })));

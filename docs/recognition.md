@@ -37,7 +37,7 @@ Progress is capped at the threshold for display. Awards are derived when read, s
 
 English, Russian and Simplified Chinese cover the table, explanations, loading/error/empty states, sample-size caveat and all award descriptions. Semantic tables, labelled native controls, focus styles and labelled progress bars support keyboard use. Tables scroll within their container on narrow screens.
 
-The 6 October presentation update gives each of the six awards an original illustrated collectible and movie/game-inspired humor in all three languages. The literal unlock condition remains separate from the joke. Earned, partially progressed and untouched quests have explicit labels; imagery never grants progress. Decorative, lazy-loaded transparent WebP images share one asset set across locales. See [art prompts and delivery details](design/achievement-art.md).
+The 6 October presentation update gives each of the six awards an original illustration and short movie/game Easter eggs in all three languages. The current v2 style uses flat icons with fewer details and more natural captions. The literal unlock condition remains separate from the joke. Earned, partial and untouched progress have explicit labels; imagery never grants progress. Decorative, lazy-loaded transparent WebP images share one asset set across locales. See [art prompts and delivery details](design/achievement-art.md).
 
 ## Follow-up product work
 
