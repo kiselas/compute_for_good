@@ -37,6 +37,8 @@ Progress is capped at the threshold for display. Awards are derived when read, s
 
 English, Russian and Simplified Chinese cover the table, explanations, loading/error/empty states, sample-size caveat and all award descriptions. Semantic tables, labelled native controls, focus styles and labelled progress bars support keyboard use. Tables scroll within their container on narrow screens.
 
+The 6 October presentation update gives each of the six awards an original illustrated collectible and movie/game-inspired humor in all three languages. The literal unlock condition remains separate from the joke. Earned, partially progressed and untouched quests have explicit labels; imagery never grants progress. Decorative, lazy-loaded transparent WebP images share one asset set across locales. See [art prompts and delivery details](design/achievement-art.md).
+
 ## Follow-up product work
 
 Useful work and timely maintainer decisions precede further gamification. Confirmed-finding awards, maintainer ratings, retained-after-30-days awards, skills/category attribution and a project impact score need additional evidence fields and anti-abuse rules before implementation. A more polished README/profile badge can link to the public evidence page; registration counts, raw PR volume and security keywords must not manufacture impact.

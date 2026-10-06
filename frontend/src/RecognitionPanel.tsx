@@ -3,15 +3,15 @@ import { Link } from "react-router-dom";
 import type { Reputation } from "./api";
 import { t, formatNumber } from "./i18n";
 
-function achievementCopy(id: string): [string, string] {
+function achievementCopy(id: string) {
   switch (id) {
-    case "first_contribution": return [t("First accepted contribution"), t("One contribution accepted by a maintainer.")];
-    case "five_contributions": return [t("Steady contributor"), t("Five accepted contributions.")];
-    case "ten_contributions": return [t("Ten useful changes"), t("Ten accepted contributions.")];
-    case "cross_project": return [t("Across projects"), t("Accepted contributions in three different projects.")];
-    case "first_review": return [t("First accepted review"), t("Review the final commit of a contribution that is accepted.")];
-    case "five_reviews": return [t("Review partner"), t("Review the final commits of five accepted contributions.")];
-    default: return [id, ""];
+    case "first_contribution": return { title: t("May the merge be with you"), quip: t("Your first PR made it to main. The backlog felt a disturbance."), criterion: t("One contribution accepted by a maintainer."), art: "first_contribution", tone: "mint" };
+    case "five_contributions": return { title: t("The fifth element"), quip: t("Code, tests, docs, review. The fifth element? You showing up again."), criterion: t("Five accepted contributions."), art: "five_contributions", tone: "amber" };
+    case "ten_contributions": return { title: t("Combo ×10"), quip: t("Ten accepted changes. The backlog would like to lower the difficulty."), criterion: t("Ten accepted contributions."), art: "ten_contributions", tone: "rose" };
+    case "cross_project": return { title: t("Now you're thinking with portals"), quip: t("Three repositories helped. The cake may be a lie; the contributions aren't."), criterion: t("Accepted contributions in three different projects."), art: "cross_project", tone: "violet" };
+    case "first_review": return { title: t("Elementary, my dear reviewer"), quip: t("You inspected the final commit. Even the semicolons had an alibi."), criterion: t("Review the final commit of a contribution that is accepted."), art: "first_review", tone: "teal" };
+    case "five_reviews": return { title: t("Reviewers, assemble!"), quip: t("Five accepted contributions reviewed. Someone has to watch the end credits."), criterion: t("Review the final commits of five accepted contributions."), art: "five_reviews", tone: "blue" };
+    default: return { title: id, quip: "", criterion: "", art: null, tone: "blue" };
   }
 }
 
@@ -30,13 +30,20 @@ export default function RecognitionPanel({ reputation }: { reputation: Reputatio
       <div><strong>{reputation.acceptance.rate === null ? "—" : t("{rate}%", { rate: formatNumber(reputation.acceptance.rate) })}</strong><span>{t("PR acceptance rate")}</span><small>{t("{count} decided submissions", { count: formatNumber(reputation.acceptance.decided) })}</small></div>
     </div>
     <p className="small-print">{t("Acceptance rate uses accepted, closed and invalid canonical submissions. Pending work is excluded; a small sample is not a quality guarantee.")}</p>
-    <div className="recognition-heading"><h3><Award size={19} />{t("Achievements")}</h3><span className="muted">{t("{earned} of {total} earned", { earned: formatNumber(earned), total: formatNumber(reputation.achievements.length) })}</span></div>
+    <div className="recognition-heading achievement-heading"><div><div className="eyebrow">{t("SIDE QUESTS. REAL IMPACT.")}</div><h3><Award size={19} />{t("Achievements")}</h3></div><span className="achievement-collection-count">{t("{earned} of {total} earned", { earned: formatNumber(earned), total: formatNumber(reputation.achievements.length) })}</span></div>
     <div className="achievement-grid">
       {reputation.achievements.map(a => {
-        const [title, description] = achievementCopy(a.id);
-        return <article className={`achievement-card ${a.earned ? "earned" : "locked"}`} key={a.id}>
-          <div className="achievement-icon" aria-hidden="true">{a.earned ? <CheckCircle2 size={22} /> : <LockKeyhole size={22} />}</div>
-          <div><h4>{title}</h4><p>{description}</p><div className="achievement-progress"><progress value={a.progress} max={a.threshold} aria-label={title} /><span>{a.earned ? t("Earned") : t("{progress} / {goal}", { progress: formatNumber(a.progress), goal: formatNumber(a.threshold) })}</span></div></div>
+        const { title, quip, criterion, art, tone } = achievementCopy(a.id);
+        return <article className={`achievement-card ${a.earned ? "earned" : "locked"}`} data-tone={tone} key={a.id}>
+          <div className="achievement-art" aria-hidden="true">
+            {art ? <img src={`/images/achievements/${art}-v1.webp`} alt="" width={128} height={128} loading="lazy" decoding="async" /> : <Award size={48} />}
+          </div>
+          <div className="achievement-body">
+            <span className="achievement-status">{a.earned ? <CheckCircle2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{a.earned ? t("In the collection") : a.progress > 0 ? t("Quest in progress") : t("Quest awaits")}</span>
+            <h4>{title}</h4><p className="achievement-quip">{quip}</p>
+            <div className="achievement-goal"><span>{t("Unlock condition")}</span><p>{criterion}</p></div>
+            <div className="achievement-progress"><progress value={a.progress} max={a.threshold} aria-label={title} /><span>{t("{progress} / {goal}", { progress: formatNumber(a.progress), goal: formatNumber(a.threshold) })}</span></div>
+          </div>
         </article>;
       })}
     </div>
