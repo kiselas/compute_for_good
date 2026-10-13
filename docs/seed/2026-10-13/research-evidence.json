@@ -1,0 +1,437 @@
+{
+  "schema": "cfg/security-pilot-research/1",
+  "checked_at_utc": "2026-10-13T12:37:32.126433+00:00",
+  "published_tasks": 0,
+  "scope": "Read-only GitHub metadata, pinned source inspection, dependency audits and synthetic component probes. No full reproduction or fixes executed.",
+  "repositories": [
+    {
+      "repository": "kiselas/compute_for_good",
+      "default_branch": "main",
+      "baseline_sha": "718228eab8a52c27feb913042fb350a32732a6b8",
+      "license": "MIT",
+      "pull_request_creation_policy": "all",
+      "archived": false,
+      "private_vulnerability_reporting": {
+        "enabled": false
+      },
+      "open_prs": []
+    },
+    {
+      "repository": "kiselas/deadtrace",
+      "default_branch": "main",
+      "baseline_sha": "8aec2694cea6241d28a82975dbb77f8b85d6a35f",
+      "license": "Apache-2.0",
+      "pull_request_creation_policy": "all",
+      "archived": false,
+      "private_vulnerability_reporting": {
+        "enabled": false
+      },
+      "open_prs": [
+        {
+          "number": 21,
+          "title": "Protect inherited Django database fixture hooks; model 93",
+          "url": "https://github.com/kiselas/deadtrace/pull/21",
+          "head_sha": "5c0aba42518189a774437587e0fee0c40d21dce3"
+        },
+        {
+          "number": 12,
+          "title": "Bump ruff from 0.16.8 to 0.16.10",
+          "url": "https://github.com/kiselas/deadtrace/pull/12",
+          "head_sha": "e9bc9b481c8fa45e39898bd5fae16d8876bf630c"
+        },
+        {
+          "number": 11,
+          "title": "Bump mypy from 2.3.1 to 2.4.0",
+          "url": "https://github.com/kiselas/deadtrace/pull/11",
+          "head_sha": "33346c67774778636dbcb7bb739ef8be4fbc30a6"
+        },
+        {
+          "number": 10,
+          "title": "Bump hypothesis from 6.168.0 to 6.168.4",
+          "url": "https://github.com/kiselas/deadtrace/pull/10",
+          "head_sha": "b817380bb2997d23119dcf90b1bf573415ec7acb"
+        },
+        {
+          "number": 9,
+          "title": "Bump fastapi from 0.141.1 to 0.142.2",
+          "url": "https://github.com/kiselas/deadtrace/pull/9",
+          "head_sha": "bf9d65c2f46951d932175a1768d24db2ece3539f"
+        }
+      ]
+    },
+    {
+      "repository": "kiselas/testence",
+      "default_branch": "main",
+      "baseline_sha": "c7a7949652758160c244e0be2f2a5ed5e02487e8",
+      "license": "Apache-2.0",
+      "pull_request_creation_policy": "all",
+      "archived": false,
+      "private_vulnerability_reporting": {
+        "enabled": false
+      },
+      "open_prs": [
+        {
+          "number": 35,
+          "title": "Bound nested pytest process trees and fix crash-test PID publication",
+          "url": "https://github.com/kiselas/testence/pull/35",
+          "head_sha": "0fcc46c398a778807791acfcdefa95c8a0ce28be"
+        },
+        {
+          "number": 34,
+          "title": "Smooth the first hour: explore refuses local files, verify says install, failed runs point at evidence",
+          "url": "https://github.com/kiselas/testence/pull/34",
+          "head_sha": "bd47de98423f9a5171442edc2a6771ad8d28bdab"
+        },
+        {
+          "number": 33,
+          "title": "Give slow runners the budgets the claims allow",
+          "url": "https://github.com/kiselas/testence/pull/33",
+          "head_sha": "ebbb1fa8c5677cf71638af57f542169cbe4e2627"
+        },
+        {
+          "number": 32,
+          "title": "Keep secrets out of exports: raw recordings opt-in, masked secret fields, URL passwords, session cookies",
+          "url": "https://github.com/kiselas/testence/pull/32",
+          "head_sha": "2fbd96e0100f4d5e027530a9c11453e084b8d811"
+        },
+        {
+          "number": 31,
+          "title": "Oracle proofs bind to the entity the save created; suggestions paste and prove it",
+          "url": "https://github.com/kiselas/testence/pull/31",
+          "head_sha": "fb70d84f8593092512ba0dd0ad55185f443195df"
+        },
+        {
+          "number": 26,
+          "title": "Bump the react-sut group across 1 directory with 2 updates",
+          "url": "https://github.com/kiselas/testence/pull/26",
+          "head_sha": "f4b910cb904babbac6e278bf3a81b78fd87df5aa"
+        },
+        {
+          "number": 25,
+          "title": "Bump cypress from 16.1.0 to 16.1.1 in /bench/node in the benchmark-node group",
+          "url": "https://github.com/kiselas/testence/pull/25",
+          "head_sha": "ac0694f3aa3d01444394147eed116902600acb57"
+        }
+      ]
+    },
+    {
+      "repository": "google/osv-scanner",
+      "default_branch": "main",
+      "baseline_sha": "f455353546889009663c1f8b640d5880a01c889a",
+      "license": "Apache-2.0",
+      "pull_request_creation_policy": "all",
+      "archived": false
+    }
+  ],
+  "external_candidate": {
+    "url": "https://github.com/google/osv-scanner/issues/3093",
+    "state": "open",
+    "updated_at": "2026-10-05T07:40:01Z",
+    "assignees": [],
+    "maintainer_consent_verified": false,
+    "comments": [
+      {
+        "url": "https://github.com/google/osv-scanner/issues/3093#issuecomment-5950073574",
+        "author": "Denimworld12",
+        "body": "Confirmed on `main` (`1b86129`), and it is already captured in this repo's own snapshots.\n\n`mapIDsToGroupedSARIFFinding` points every ID in an alias group at the same `*groupedSARIFFinding` (`internal/output/result.go:229-231`), and `PrintSARIFReport` iterates every key of that map (`internal/output/sarif.go:266`), so one group emits one result per matched ID.\n\n`sarif_test.snap`, \"one source with one package and two aliases of a single vulnerability\":\n\n```\nruleId=OSV-1  location=path/to/my/first/lockfile  fingerprint=[line-hash]\nruleId=OSV-1  location=path/to/my/first/lockfile  fingerprint=[line-hash]\n```\n\nIdentical in `ruleId`, `locations`, `message.text` and `partialFingerprints`. Fourteen snapshot cases currently contain a duplicated `ruleId`.\n\nWorth separating from the legitimate case, since the fix has to keep it. \"two sources with the same vulnerable package\":\n\n```\nruleId=OSV-1  location=path/to/my/first/lockfile\nruleId=OSV-1  location=path/to/my/second/lockfile\n```\n\nSame rule, different locations, two real findings. So the discriminator is the location, not the rule: alias duplicates collapse, per-source results stay. That means one result per group rather than per ID, with the `pkgSourceSet` loop at `sarif.go:340` continuing to produce one result per source.\n\n@pmig you mentioned drafting a PR — are you still on it? If so I'll leave it with you. If not, could this be assigned to me? The change is small and everything downstream already keys off `gv.DisplayID`; the bulk of the diff would be the snapshot regen via `make test SNAPS=true`.\n"
+      },
+      {
+        "url": "https://github.com/google/osv-scanner/issues/3093#issuecomment-5990197277",
+        "author": "pmig",
+        "body": "@Denimworld12 let's wait for a mantainers response, if they want to implement deduplication. @Ly-Joey or @G-Rath is this something you would be open to accept contributions or is this an expected behavior?"
+      }
+    ],
+    "timeline_page_complete": true,
+    "linked_items": [
+      {
+        "url": "https://github.com/google/osv-scanner/pull/3122",
+        "state": "closed"
+      }
+    ]
+  },
+  "existing_security_pr": {
+    "url": "https://github.com/kiselas/testence/pull/32",
+    "state": "open",
+    "merged": false,
+    "head_sha": "2fbd96e0100f4d5e027530a9c11453e084b8d811",
+    "checks": [
+      {
+        "name": "Installed wheel / macOS browser",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114834695702"
+      },
+      {
+        "name": "Installed wheel / browser / release artifacts",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114834695607"
+      },
+      {
+        "name": "Installed wheel / Windows browser",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114834695479"
+      },
+      {
+        "name": "Visual client simulation / windows-latest",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829630557"
+      },
+      {
+        "name": "Documented CI template",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829630501"
+      },
+      {
+        "name": "Visual client simulation / macos-latest",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829630463"
+      },
+      {
+        "name": "Visual client simulation / ubuntu-latest",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829630388"
+      },
+      {
+        "name": "GitGuardian Security Checks",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/runs/114829349056"
+      },
+      {
+        "name": "ubuntu-latest / Python 3.12",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829343018"
+      },
+      {
+        "name": "Minimum dependencies / windows-latest / Python 3.10",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829343014"
+      },
+      {
+        "name": "macos-latest / Python 3.10",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342942"
+      },
+      {
+        "name": "macos-latest / Python 3.12",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342897"
+      },
+      {
+        "name": "ubuntu-latest / Python 3.10",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342869"
+      },
+      {
+        "name": "Minimum dependencies / ubuntu-latest / Python 3.10",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342780"
+      },
+      {
+        "name": "windows-latest / Python 3.10",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342771"
+      },
+      {
+        "name": "windows-latest / Python 3.12",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342756"
+      },
+      {
+        "name": "Minimum dependencies / macos-latest / Python 3.10",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342611"
+      },
+      {
+        "name": "Quality and package",
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/kiselas/testence/actions/runs/38254613761/job/114829342499"
+      }
+    ]
+  },
+  "component_probes": {
+    "schema": "cfg/security-pilot-component-probes/1",
+    "source_sha": "2fbd96e0100f4d5e027530a9c11453e084b8d811",
+    "scope": "Actual extracted warning function and full sanitizer module; no end-to-end pytest/export run",
+    "synthetic_only": true,
+    "warning_emitted": true,
+    "warning_contains_synthetic_password": true,
+    "unregistered_nodeid_survives_sanitizer": true,
+    "source_literal_survives_sanitizer": true,
+    "registered_secret_is_removed": true,
+    "ordinary_control_preserved": true
+  },
+  "npm_audit": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 0,
+      "high": 0,
+      "critical": 0,
+      "total": 0
+    },
+    "dependencies": {
+      "prod": 20,
+      "dev": 114,
+      "optional": 53,
+      "peer": 0,
+      "peerOptional": 0,
+      "total": 133
+    }
+  },
+  "python_audit": {
+    "dependencies_checked": 53,
+    "reported_vulnerabilities": 0,
+    "skipped": []
+  },
+  "source_files": [
+    {
+      "local_artifact": "pilot-deadtrace-test_bounded_inputs.py",
+      "sha256": "59114e180db6405b6232708f88e1a3db93c629643c87eb50ccbd79f5d1381dba"
+    },
+    {
+      "local_artifact": "pilot-deadtrace-test_hostile_inputs.py",
+      "sha256": "05ea48ed5ce60336e01b6b8734023484e32fb515f99c8a30da939483494a61c6"
+    },
+    {
+      "local_artifact": "pilot-deadtrace-test_input_failures.py",
+      "sha256": "179fef57cdb5468323987d300775e901d41e23b5aca8be6110c44221b575235e"
+    },
+    {
+      "local_artifact": "pilot-osv-result.go",
+      "sha256": "9bbe6ca45af18a5d8341596525ed69218f612f8fbd432fcdf219e1c1204846cb"
+    },
+    {
+      "local_artifact": "pilot-osv-sarif.go",
+      "sha256": "ac6f0154a41babaf2f1eb9ca3f8d767ec03ce962403437d9fe5265b1add1d01c"
+    },
+    {
+      "local_artifact": "pilot-osv-sarif_test.snap",
+      "sha256": "afd1951063ad14a3c808a7e3ff389bc08f499a41fa969e1e0acd7ec0be6b280a"
+    },
+    {
+      "local_artifact": "pilot-testence-ci.yml",
+      "sha256": "eb3d72cd3d5005c4cc72e081152f840d834ffc1042560d086ccd0cb1dd090f58"
+    },
+    {
+      "local_artifact": "pilot-testence-pyproject.toml",
+      "sha256": "7d9273c1dd4c3039b6e42c1fa186667167539c3911c133a03aac0ec4e2e2c671"
+    },
+    {
+      "local_artifact": "pilot-testence-pytest_plugin.py",
+      "sha256": "6ef5116a244e11441ca6d0b633f132086876169b20a4c3502e0b353c881a1a48"
+    },
+    {
+      "local_artifact": "pilot-testence-sanitize.py",
+      "sha256": "16f479787a772f7a21e666f3e60d9b561a7e89ad64e18bc7c5538a7f75961299"
+    },
+    {
+      "local_artifact": "pilot-testence-test_redaction_policy.py",
+      "sha256": "45e3b5fc02257526ad7387e1e2df388548c4708d641264afeb2243794a1e7912"
+    },
+    {
+      "local_artifact": "pilot-testence-writer.py",
+      "sha256": "763c13c529c0c4c2f352429b2b74f415cb5ca5127eed9ec800fba13f939b1bf3"
+    }
+  ],
+  "osv_snapshot_probe": {
+    "source_sha": "f455353546889009663c1f8b640d5880a01c889a",
+    "scope": "Parsed checked-in snapshots, not a fresh scanner execution",
+    "cases": [
+      {
+        "case": "TestPrintSARIFReport_WithVulnerabilities/one_source_with_one_package_and_two_aliases_of_a_single_uncalled_vulnerability - 1",
+        "results": 2,
+        "distinct_results": 1,
+        "identical_extra_results": 1
+      },
+      {
+        "case": "TestPrintSARIFReport_WithVulnerabilities/one_source_with_one_package_and_two_aliases_of_a_single_vulnerability_with_a_max_severity - 1",
+        "results": 2,
+        "distinct_results": 1,
+        "identical_extra_results": 1
+      },
+      {
+        "case": "TestPrintSARIFReport_WithVulnerabilities/one_source_with_one_package_and_two_aliases_of_a_single_vulnerability_without_a_max_severity - 1",
+        "results": 2,
+        "distinct_results": 1,
+        "identical_extra_results": 1
+      },
+      {
+        "case": "TestPrintSARIFReport_WithVulnerabilities/two_sources_with_the_same_vulnerable_package - 1",
+        "results": 2,
+        "distinct_results": 2,
+        "identical_extra_results": 0
+      }
+    ]
+  },
+  "task_contracts": [
+    {
+      "id": "PILOT-01",
+      "kind": "disclosure_operations",
+      "state": "DRAFT_OWNER_ACTION",
+      "repositories": [
+        "kiselas/compute_for_good",
+        "kiselas/deadtrace",
+        "kiselas/testence"
+      ],
+      "dispatch_allowed": false
+    },
+    {
+      "id": "PILOT-02",
+      "kind": "existing_pr_review_and_release",
+      "state": "DRAFT_REVIEWER_REQUIRED",
+      "repositories": [
+        "kiselas/testence"
+      ],
+      "source_url": "https://github.com/kiselas/testence/pull/32",
+      "dispatch_allowed": false
+    },
+    {
+      "id": "PILOT-03",
+      "kind": "diagnostic_privacy_fix",
+      "state": "DRAFT_BASELINE_AND_REVIEWER_REQUIRED",
+      "repositories": [
+        "kiselas/testence"
+      ],
+      "risk_proposal": "LOW",
+      "dispatch_allowed": false
+    },
+    {
+      "id": "PILOT-04",
+      "kind": "traceback_privacy",
+      "state": "DRAFT_POLICY_AND_END_TO_END_REPRO_REQUIRED",
+      "repositories": [
+        "kiselas/testence"
+      ],
+      "risk_proposal": "NORMAL",
+      "dispatch_allowed": false
+    },
+    {
+      "id": "PILOT-05",
+      "kind": "security_tooling_fix",
+      "state": "WAITING_UPSTREAM",
+      "repositories": [
+        "google/osv-scanner"
+      ],
+      "source_url": "https://github.com/google/osv-scanner/issues/3093",
+      "risk_proposal": "NORMAL",
+      "dispatch_allowed": false
+    }
+  ]
+}
