@@ -75,3 +75,15 @@ test('server expiry wins over a slow client clock and only a new permit restores
   assert.equal(state.draft.pr_url, saved.pr_url);
   assert.equal(state.draft.head_sha, saved.head_sha);
 });
+
+test('restoring draft text grants no permit, and clearing it cannot bypass expiry', () => {
+  const saved = enterDraft(initialPermitState()).draft;
+  const restored = initialPermitState(saved);
+  assert.deepEqual(restored.draft, saved);
+  assert.equal(restored.permit, null);
+  assert.equal(submissionPayload(restored, time, lease), null);
+  const expired = permitReducer(restored, { type: 'issued', permit: permit('expired', time) });
+  const cleared = permitReducer(expired, { type: 'reset-draft' });
+  assert.deepEqual(cleared.draft, initialPermitState().draft);
+  assert.equal(submissionPayload(cleared, time + 1, lease), null);
+});

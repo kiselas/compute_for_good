@@ -9,7 +9,10 @@ const { QueryClient } = require('@tanstack/react-query');
 const bundle = await build({ entryPoints: [fileURLToPath(new URL('../src/sessionCache.ts', import.meta.url))],
   bundle: true, write: false, format: 'cjs', platform: 'node', packages: 'external' });
 const module = { exports: {} };
-vm.runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports, require, console });
+const values = new Map();
+const sessionStorage = { get length() { return values.size; }, key: index => [...values.keys()][index] ?? null,
+  getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+vm.runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports, require, console, sessionStorage });
 const { replaceAuthSession } = module.exports;
 const guest = { user: null, csrf_token: null };
 const member = id => ({ user: { id, username: id, role: 'contributor' }, csrf_token: id + '-csrf' });
@@ -56,4 +59,15 @@ test('logout purges private caches and cancels outstanding work before guest sta
     assert.deepEqual(client.getQueryData(['health']), { demo_mode: false });
     assert.deepEqual(client.getQueryData(['auth-session']), guest);
   } finally { finish(null); client.clear(); }
+});
+
+test('real session transition clears PR drafts while preserving unrelated tab preferences', async () => {
+  const client = new QueryClient();
+  client.setQueryData(['auth-session'], member('old-user'));
+  values.set('cfg-submission-draft:v1:old-user:task:lease', 'private draft');
+  values.set('cfg-language', 'ru');
+  try {
+    await replaceAuthSession(client, guest);
+    assert.deepEqual([...values], [['cfg-language', 'ru']]);
+  } finally { values.clear(); client.clear(); }
 });

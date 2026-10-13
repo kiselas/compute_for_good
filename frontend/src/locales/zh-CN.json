@@ -1,4 +1,8 @@
 {
+  "Browser storage is unavailable. Keep this page open to preserve your PR draft.": "浏览器存储不可用。请保持此页面打开，以保留 PR 草稿。",
+  "PR draft saved in this tab. A new permit is required after reload.": "PR 草稿已保存在此标签页中。刷新后需要重新获取提交许可。",
+  "Your PR draft is available. Prepare a new submission permit to continue.": "PR 草稿可用。请获取新的提交许可后继续。",
+  "Clear PR draft": "清除 PR 草稿",
   "The request timed out. Check your workspace before trying again.": "请求超时。请先检查工作区，再重试。",
   " · DEMO PROJECT": " · 演示项目",
   " · DEMO TASK": " · 演示任务",

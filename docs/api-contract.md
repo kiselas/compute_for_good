@@ -69,6 +69,21 @@ for eligibility, recording-date windows, exclusions and calculation semantics.
 
 ## MCP
 
+## Browser submission draft recovery
+
+The browser keeps only PR URL, head SHA and summary in same-origin sessionStorage,
+scoped by account, task and lease. Recovery requires the same active lease; records
+are rejected after their stored expiry (at most 24 hours and no later than the
+lease expiry). A reload restores text, not a permit. The browser requests a new
+server permit, including the existing FINALIZING lease recovery/rotation flow.
+Permit, lease, CSRF and agent tokens are never serialized into these draft records.
+
+Successful registration, explicit draft clearing, logout and identity changes
+remove this feature's records. Storage denial/quota failure keeps the current
+form usable in memory and tells the user to keep the page open; reload recovery
+cannot be promised in that case. Server authorization and expired-token rejection
+are unchanged. No new REST or MCP endpoint is required.
+
 ## Public sharing and sprints
 
 `GET /people/{username}/activity?year=2026` returns UTC daily accepted-contribution
