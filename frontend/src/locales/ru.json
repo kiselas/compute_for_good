@@ -1,4 +1,8 @@
 {
+  "Browser storage is unavailable. Keep this page open to preserve your PR draft.": "Хранилище браузера недоступно. Не закрывайте страницу, чтобы сохранить черновик PR.",
+  "PR draft saved in this tab. A new permit is required after reload.": "Черновик PR сохранён в этой вкладке. После перезагрузки нужно новое разрешение на отправку.",
+  "Your PR draft is available. Prepare a new submission permit to continue.": "Черновик PR доступен. Получите новое разрешение на отправку, чтобы продолжить.",
+  "Clear PR draft": "Очистить черновик PR",
   "The request timed out. Check your workspace before trying again.": "Время ожидания запроса истекло. Проверьте рабочую область перед повторной попыткой.",
   " · DEMO PROJECT": " · ДЕМОПРОЕКТ",
   " · DEMO TASK": " · ДЕМОЗАДАЧА",

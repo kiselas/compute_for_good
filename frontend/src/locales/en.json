@@ -1,4 +1,8 @@
 {
+  "Browser storage is unavailable. Keep this page open to preserve your PR draft.": "Browser storage is unavailable. Keep this page open to preserve your PR draft.",
+  "PR draft saved in this tab. A new permit is required after reload.": "PR draft saved in this tab. A new permit is required after reload.",
+  "Your PR draft is available. Prepare a new submission permit to continue.": "Your PR draft is available. Prepare a new submission permit to continue.",
+  "Clear PR draft": "Clear PR draft",
   "The request timed out. Check your workspace before trying again.": "The request timed out. Check your workspace before trying again.",
   " · Created {date}": " · Created {date}",
   " · DEMO PROJECT": " · DEMO PROJECT",

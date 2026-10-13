@@ -77,6 +77,7 @@ import { readLeaseToken, writeLeaseToken } from "./leaseStorage";
 import { initialPermitState, permitReducer, permitIsValid, leaseIsUsable, submissionPayload, type SubmissionPermit } from "./permitState";
 import { sessionPhase, type SessionPhase } from "./sessionState";
 import { replaceAuthSession, resetSessionQueries } from "./sessionCache";
+import { readSubmissionDraft, writeSubmissionDraft, removeSubmissionDraft, hasSubmissionDraft } from "./submissionDraftStorage";
 import SessionBoundary from "./SessionBoundary";
 import RecognitionPanel from "./RecognitionPanel";
 import ContributionShare, { ReadmeBadge } from "./ShareTools";
@@ -1349,9 +1350,17 @@ function ProjectPage() {
 }
 
 function ContributionRegistration({ task, lease, clock }: { task: Task; lease: Lease; clock: number }) {
+  const { user } = useContext(Session);
   const navigate = useNavigate();
   const action = useAction();
-  const [state, dispatch] = useReducer(permitReducer, undefined, initialPermitState);
+  const scope = user?.id === lease.user_id ? { userId: user.id, taskId: task.id, leaseId: lease.id, expiresAt: lease.expires_at } : null;
+  const [state, dispatch] = useReducer(permitReducer, undefined, () => initialPermitState(readSubmissionDraft(scope)));
+  const [storageMode, setStorageMode] = useState<"persisted" | "memory" | null>(null);
+  const hasDraft = hasSubmissionDraft(state.draft);
+  useEffect(() => {
+    if (hasSubmissionDraft(state.draft)) setStorageMode(writeSubmissionDraft(scope, state.draft));
+    else if (scope) removeSubmissionDraft(scope);
+  }, [state.draft, user?.id, task.id, lease.id, lease.expires_at]);
   const valid = !state.invalidated && permitIsValid(state.permit, clock);
   useEffect(() => {
     if (action.error instanceof ApiError && action.error.status === 409 &&
@@ -1366,6 +1375,16 @@ function ContributionRegistration({ task, lease, clock }: { task: Task; lease: L
   };
   return <section className="panel">
     <h2>{t("Register your contribution")}</h2>
+    {hasDraft && <div className="small-print" role="status">
+      {storageMode && <p>{t(storageMode === "memory"
+        ? "Browser storage is unavailable. Keep this page open to preserve your PR draft."
+        : "PR draft saved in this tab. A new permit is required after reload.")}</p>}
+      {!state.permit && <p>{t("Your PR draft is available. Prepare a new submission permit to continue.")}</p>}
+      <button type="button" className="text-button" disabled={action.busy} onClick={() => {
+        if (scope) removeSubmissionDraft(scope);
+        dispatch({ type: "reset-draft" });
+      }}>{t("Clear PR draft")}</button>
+    </div>}
     <p className="muted">{t("A short-lived permit confirms the lease is still yours.")} {task.is_demo
       ? t("In this demo, sample PR references are accepted.")
       : t("Use a real PR in this project with the required CFG provenance.")}</p>
@@ -1378,7 +1397,10 @@ function ContributionRegistration({ task, lease, clock }: { task: Task; lease: L
       const body = submissionPayload(state, Date.now(), lease);
       if (!body || action.busy) return;
       void action.run<Submission>(`/tasks/${task.id}/submissions`, body,
-        submission => navigate(`/submissions/${submission.id}`));
+        submission => {
+          if (scope) removeSubmissionDraft(scope);
+          navigate(`/submissions/${submission.id}`);
+        });
     }}>
       {valid ? <p className="success-message" role="status"><CheckCircle2 size={16} />
         {t("Permit expires")} {date(state.permit.expires_at)}
@@ -1388,12 +1410,14 @@ function ContributionRegistration({ task, lease, clock }: { task: Task; lease: L
         </button>
       </div>}
       <FormField label={t("Pull request URL")}><input required type="url" name="pr_url"
+        maxLength={1000}
         value={state.draft.pr_url} onChange={event => dispatch({ type: "edit", field: "pr_url", value: event.target.value })}
         placeholder="https://github.com/org/repo/pull/123" /></FormField>
       <FormField label={t("Head commit SHA")}><input required name="head_sha" pattern="[a-fA-F0-9]{7,40}" minLength={7} maxLength={40}
         value={state.draft.head_sha} onChange={event => dispatch({ type: "edit", field: "head_sha", value: event.target.value })}
         placeholder={t("40-character commit SHA")} /></FormField>
       <FormField label={t("Implementation summary")}><textarea required name="summary" rows={3}
+        maxLength={10000}
         value={state.draft.summary} onChange={event => dispatch({ type: "edit", field: "summary", value: event.target.value })} /></FormField>
       <button className="button" disabled={action.busy || !valid}>
         {t("Register submission")} <GitPullRequest size={16} />

@@ -4,13 +4,15 @@ export interface PermitState { permit: SubmissionPermit | null; draft: Submissio
 export type PermitAction =
   | { type: "issued"; permit: SubmissionPermit }
   | { type: "invalidated" }
+  | { type: "reset-draft" }
   | { type: "edit"; field: keyof SubmissionDraft; value: string };
 
-export function initialPermitState(): PermitState {
-  return { permit: null, draft: { pr_url: "", head_sha: "", summary: "" }, invalidated: false };
+export function initialPermitState(draft?: SubmissionDraft): PermitState {
+  return { permit: null, draft: draft ? { ...draft } : { pr_url: "", head_sha: "", summary: "" }, invalidated: false };
 }
 
 export function permitReducer(state: PermitState, action: PermitAction): PermitState {
+  if (action.type === "reset-draft") return { ...state, draft: initialPermitState().draft };
   return action.type === "invalidated" ? { ...state, invalidated: true } : action.type === "issued"
     ? { ...state, permit: action.permit, invalidated: false }
     : { ...state, draft: { ...state.draft, [action.field]: action.value } };
