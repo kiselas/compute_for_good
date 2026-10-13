@@ -4,13 +4,16 @@ import secrets
 import threading
 import time
 import uuid
+import asyncio
 from datetime import datetime, timezone
 
 import httpx
 import requests
 import socketio
 import pytest
+import aiohttp
 from engineio.payload import Payload
+from engineio.packet import Packet, CLOSE
 from sqlalchemy import insert, select
 
 
@@ -27,17 +30,35 @@ def public_changes(payload):
     return payload['changes']
 
 
-class RecordingPollingSession(requests.Session):
-    def __init__(self):
-        super().__init__()
-        self.trust_env = False
-        self.packet_counts = []
+def polling_session(packet_counts):
+    trace = aiohttp.TraceConfig()
+    async def record(session, context, params):
+        if params.method == 'GET' and '/socket.io/' in str(params.url) and params.response.status == 200:
+            packet_counts.append(len((await params.response.text()).split('\x1e')))
+    trace.on_request_end.append(record)
+    return aiohttp.ClientSession(trust_env=False, trace_configs=[trace])
 
-    def request(self, method, url, **kwargs):
-        response = super().request(method, url, **kwargs)
-        if method == 'GET' and '/socket.io/' in url and response.status_code == 200:
-            self.packet_counts.append(len(response.text.split('\x1e')))
-        return response
+
+async def disconnect_polling(socket, session):
+    """Send a real CLOSE, then cancel and join the client's pending poll.
+
+    The async server does not wake an outstanding GET on an aborting CLOSE.
+    Async HTTP cancellation ends that request without a shortened test timeout
+    or a background thread left waiting for the next server ping.
+    """
+    tasks = [task for task in (socket.eio.read_loop_task, socket.eio.write_loop_task) if task]
+    try:
+        if socket.connected:
+            async with session.post(socket.eio.base_url, data=Payload(packets=[Packet(CLOSE)]).encode(),
+                                    headers={'Content-Type': 'text/plain'}, timeout=aiohttp.ClientTimeout(total=5)) as response:
+                assert response.status == 200, 'Engine.IO transport close was rejected'
+                await response.read()
+            await socket.eio.disconnect(abort=True)
+    finally:
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        await session.close()
 
 
 def rpc_json(response, request_id):
@@ -150,95 +171,100 @@ def test_actual_mcp_review_claim_heartbeat_release_and_submission(api, actors, m
 
 
 def test_socketio_emits_committed_public_change_without_private_token(api, actors, make_task):
-    task = make_task()
-    received = []
-    changed = threading.Event()
-    subscribed = threading.Event()
-    session = requests.Session()
-    session.trust_env = False
-    socket = socketio.Client(reconnection=False, logger=False, engineio_logger=False, http_session=session)
+    async def scenario():
+        task = make_task()
+        received = []
+        changed = asyncio.Event()
+        subscribed = asyncio.Event()
+        session = polling_session([])
+        socket = socketio.AsyncClient(reconnection=False, logger=False, engineio_logger=False, http_session=session)
 
-    @socket.on('state_changed')
-    def on_change(payload):
-        received.append(payload)
-        subscribed.set()
-        if any(change['entity_id'] == task['id'] for change in public_changes(payload)):
-            changed.set()
+        @socket.on('state_changed')
+        def on_change(payload):
+            received.append(payload)
+            subscribed.set()
+            if any(change['entity_id'] == task['id'] for change in public_changes(payload)):
+                changed.set()
 
-    try:
-        socket.connect(str(api.base_url).rstrip('/'), socketio_path='socket.io',
-                       transports=['polling'], wait_timeout=10)
-        # A namespace connect ACK can precede Redis pub/sub subscription startup.
-        # Synchronize on actual delivery, then verify a distinct subsequent claim.
-        # Initial delivery is best effort; the product refetches after connection.
-        for _ in range(5):
-            if subscribed.is_set():
-                break
-            make_task(title='Socket subscription synchronization fixture')
-            subscribed.wait(timeout=1)
-        assert subscribed.is_set(), 'Socket namespace connected but public event subscription never became ready'
-        response = api.post(f"/api/tasks/{task['id']}/claim", json={}, headers=actors.author.headers)
-        assert response.status_code == 200, response.text
-        lease = response.json()
-        assert changed.wait(timeout=10), f'No committed task change received; events={received}'
-        state = api.get(f"/api/tasks/{task['id']}", headers=actors.author.headers).json()
-        assert state['active_lease']['id'] == lease['id']
-        assert lease['token'] not in json.dumps(received)
-        assert actors.author.token not in json.dumps(received)
-        for payload in received:
-            public_changes(payload)
-    finally:
-        if socket.connected:
-            socket.disconnect()
+        try:
+            await socket.connect(str(api.base_url).rstrip('/'), socketio_path='socket.io',
+                           transports=['polling'], wait_timeout=10)
+            # A namespace connect ACK can precede Redis pub/sub subscription startup.
+            # Synchronize on actual delivery, then verify a distinct subsequent claim.
+            # Initial delivery is best effort; the product refetches after connection.
+            for _ in range(5):
+                if subscribed.is_set():
+                    break
+                make_task(title='Socket subscription synchronization fixture')
+                try:
+                    await asyncio.wait_for(subscribed.wait(), timeout=1)
+                except TimeoutError:
+                    pass
+            assert subscribed.is_set(), 'Socket namespace connected but public event subscription never became ready'
+            response = api.post(f"/api/tasks/{task['id']}/claim", json={}, headers=actors.author.headers)
+            assert response.status_code == 200, response.text
+            lease = response.json()
+            await asyncio.wait_for(changed.wait(), timeout=10)
+            state = api.get(f"/api/tasks/{task['id']}", headers=actors.author.headers).json()
+            assert state['active_lease']['id'] == lease['id']
+            assert lease['token'] not in json.dumps(received)
+            assert actors.author.token not in json.dumps(received)
+            for payload in received:
+                public_changes(payload)
+        finally:
+            await disconnect_polling(socket, session)
+    asyncio.run(scenario())
 
 
 def test_polling_fallback_survives_more_than_sixteen_persisted_events(api, database):
-    assert Payload.max_decode_packets == 16, 'Exercise the default client decoder limit'
-    events = database.table('events')
-    expected = {str(uuid.uuid4()) for _ in range(40)}
-    received = []
-    delivered = set()
-    ready = threading.Event()
-    complete = threading.Event()
-    session = RecordingPollingSession()
-    socket = socketio.Client(reconnection=False, http_session=session)
+    async def scenario():
+        assert Payload.max_decode_packets == 16, 'Exercise the default client decoder limit'
+        events = database.table('events')
+        expected = {str(uuid.uuid4()) for _ in range(40)}
+        received = []
+        delivered = set()
+        ready = asyncio.Event()
+        complete = asyncio.Event()
+        packet_counts = []
+        session = polling_session(packet_counts)
+        socket = socketio.AsyncClient(reconnection=False, http_session=session)
 
-    @socket.on('state_changed')
-    def on_change(payload):
-        received.append(payload)
-        delivered.update(change['event_id'] for change in public_changes(payload))
-        ready.set()
-        if expected <= delivered:
-            complete.set()
+        @socket.on('state_changed')
+        def on_change(payload):
+            received.append(payload)
+            delivered.update(change['event_id'] for change in public_changes(payload))
+            ready.set()
+            if expected <= delivered:
+                complete.set()
 
-    def persist(ids):
-        with database.engine.begin() as connection:
-            connection.execute(insert(events), [dict(
-                id=event_id, kind='qa.socket_burst', entity_id=event_id,
-                message='Isolated QA public invalidation burst', published=False,
-                created_at=datetime.now(timezone.utc),
-            ) for event_id in ids])
+        def persist(ids):
+            with database.engine.begin() as connection:
+                connection.execute(insert(events), [dict(
+                    id=event_id, kind='qa.socket_burst', entity_id=event_id,
+                    message='Isolated QA public invalidation burst', published=False,
+                    created_at=datetime.now(timezone.utc),
+                ) for event_id in ids])
 
-    try:
-        socket.connect(str(api.base_url).rstrip('/'), transports=['polling'], wait_timeout=10)
-        persist([str(uuid.uuid4())])
-        assert ready.wait(5), 'Subscriber did not receive readiness event'
-        persist(expected)  # All forty events commit together before dispatch can observe them.
-        assert complete.wait(10), f'Burst incomplete: {len(expected & delivered)}/40'
-        assert socket.connected, 'Default polling decoder disconnected during the event burst'
-        assert max(session.packet_counts) <= Payload.max_decode_packets
-        assert any(len(expected & {item['event_id'] for item in p['changes']}) > 16 for p in received)
-        deadline = time.monotonic() + 5
-        while True:
-            with database.engine.connect() as connection:
-                snapshot = connection.execute(select(events.c.id, events.c.published).where(events.c.id.in_(expected))).all()
-            if all(row.published for row in snapshot) or time.monotonic() >= deadline:
-                break
-            time.sleep(0.05)
-        assert len(snapshot) == 40 and all(row.published for row in snapshot)
-    finally:
-        if socket.connected:
-            socket.disconnect()
+        try:
+            await socket.connect(str(api.base_url).rstrip('/'), transports=['polling'], wait_timeout=10)
+            persist([str(uuid.uuid4())])
+            await asyncio.wait_for(ready.wait(), timeout=5)
+            persist(expected)  # All forty events commit together before dispatch can observe them.
+            await asyncio.wait_for(complete.wait(), timeout=10)
+            assert socket.connected, 'Default polling decoder disconnected during the event burst'
+            assert max(packet_counts) <= Payload.max_decode_packets
+            assert any(len(expected & {item['event_id'] for item in p['changes']}) > 16 for p in received)
+            deadline = time.monotonic() + 5
+            while True:
+                with database.engine.connect() as connection:
+                    snapshot = connection.execute(select(events.c.id, events.c.published).where(events.c.id.in_(expected))).all()
+                if all(row.published for row in snapshot) or time.monotonic() >= deadline:
+                    break
+                await asyncio.sleep(0.05)
+            assert len(snapshot) == 40 and all(row.published for row in snapshot)
+        finally:
+            await disconnect_polling(socket, session)
+    asyncio.run(scenario())
 
 
 @pytest.mark.skipif(not os.getenv('CFG_PRODUCTION_BASE_URL'), reason='Separate production proxy stack required')

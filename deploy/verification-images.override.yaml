@@ -1,0 +1,10 @@
+# Local/CI only: both isolated stacks use the same images built for this run.
+services:
+  backend:
+    image: cfg-verification-backend
+  worker:
+    image: cfg-verification-backend
+  integration_worker:
+    image: cfg-verification-backend
+  frontend:
+    image: cfg-verification-frontend

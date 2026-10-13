@@ -44,7 +44,7 @@ The service is deployed at https://compute-for-good.tech with HTTPS and GitHub A
 
 ## Verification and development
 
-Run ./scripts/verify.ps1 with uv installed. It uses a separate QA database and Redis on ports 55472/56382, backend 8110, leaving the showcase catalog intact. See [tests/README.md](tests/README.md) for production smoke options and [the audit](docs/launch-audit.md) for completed runs. Backend authorization checks additionally use real PostgreSQL and Redis with demo mode disabled.
+Run `./scripts/verify.ps1` with uv installed for fast frontend and offline checks without Docker. Use `./scripts/verify.ps1 -Mode full` before a release: it builds shared images once, uses a separate QA database/Redis on ports 55472/56382 and backend 8110, and checks both transports and production-mode authorization. See [tests/README.md](tests/README.md) for frontend/focused profiles, timing reports and release checks. The showcase catalog remains intact.
 
 Frontend sources are in frontend/, backend sources and migrations in backend/. Real environment files, virtual environments, builds, database dumps and test artifacts are ignored by Git. Preserve the private OAuth encryption key together with database backups.
 

@@ -3,10 +3,14 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import argparse
 from cryptography.fernet import Fernet
 from sqlalchemy.engine import make_url
 
 root = Path(__file__).resolve().parent.parent
+parser = argparse.ArgumentParser(description=__doc__)
+parser.add_argument('--junitxml', default='tests/artifacts/auth-verification.xml')
+args = parser.parse_args()
 environment = os.environ.copy()
 url = make_url(environment.get('DATABASE_URL', 'postgresql+psycopg://cfg:cfg-local@127.0.0.1:55472/cfg'))
 if url.host not in {'127.0.0.1', 'localhost'} or url.port not in {55471, 55472} or url.database != 'cfg':
@@ -17,4 +21,4 @@ environment['PUBLIC_URL'] = 'http://localhost:8010'
 environment['FRONTEND_URL'] = 'http://localhost:8010'
 environment['SECURE_COOKIES'] = 'false'
 environment['OAUTH_SECRET_KEY'] = Fernet.generate_key().decode()
-raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', 'backend/tests_auth.py', 'backend/test_oauth_replay.py', '-q', '--junitxml=tests/artifacts/auth-verification.xml'], cwd=root, env=environment))
+raise SystemExit(subprocess.call([sys.executable, '-m', 'pytest', 'backend/tests_auth.py', 'backend/test_oauth_replay.py', '-q', '-x', '--durations=10', '--junitxml=' + args.junitxml], cwd=root, env=environment))
