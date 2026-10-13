@@ -2,6 +2,7 @@ name: Launch verification
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -28,9 +29,9 @@ jobs:
       - name: Install locked frontend dependencies
         working-directory: frontend
         run: npm ci
-      - name: Check all languages, TypeScript and production build
+      - name: Check languages, frontend regressions and TypeScript in parallel
         working-directory: frontend
-        run: npm run build
+        run: npm run check
 
   integration:
     runs-on: ubuntu-latest
@@ -78,13 +79,31 @@ jobs:
           production.write_text(''.join(f'{key}={value}\n' for key, value in config.items()))
           production.chmod(0o600)
           PY
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build cached backend image for both isolated stacks
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: backend
+          load: true
+          tags: cfg-verification-backend
+          cache-from: type=gha,scope=cfg-backend
+          cache-to: type=gha,mode=max,scope=cfg-backend
+      - name: Build cached frontend image for both isolated stacks
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: frontend
+          load: true
+          tags: cfg-verification-frontend
+          cache-from: type=gha,scope=cfg-frontend
+          cache-to: type=gha,mode=max,scope=cfg-frontend
       - name: Start PostgreSQL, Redis, API, workers and frontend
-        run: docker compose up --build -d --wait --wait-timeout 240
+        run: docker compose -f compose.yaml -f deploy/verification-images.override.yaml up --no-build -d --wait --wait-timeout 240
       - name: Start independent demo-free production proxy stack
         run: >-
           docker compose -p cfg-production-smoke --env-file .env.production-smoke
           -f compose.production.yaml -f deploy/production-smoke.override.yaml
-          up --build -d --wait --wait-timeout 240
+          -f deploy/verification-images.override.yaml
+          up --no-build -d --wait --wait-timeout 240
       - name: Wait for both worker heartbeats and migrations
         run: |
           python - <<'PY'
@@ -102,23 +121,15 @@ jobs:
                       time.sleep(2)
           PY
       - name: Run real storage, MCP, planning and production smoke tests
-        run: python -m pytest tests -v --junitxml=tests/artifacts/verification.xml
+        run: python -m pytest tests -q -x --durations=10 --junitxml=tests/artifacts/verification.xml
       - name: Verify proxy recovers from a changed backend IP without reload
         run: python scripts/verify-proxy-dns.py
       - name: Require all six production checks and prohibit skipped tests
-        run: |
-          python - <<'PY'
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-          cases = ET.parse(Path('tests/artifacts/verification.xml')).getroot().findall('.//testcase')
-          assert cases, 'No integration cases executed'
-          assert not any(case.find('skipped') is not None for case in cases), 'CI must execute every production smoke test'
-          smoke = [case for case in cases if 'test_production_smoke' in case.attrib['classname'] or case.attrib['name'] == 'test_actual_websocket_through_caddy_and_nginx_committed_public_change']
-          assert len(smoke) == 6, f'Expected six production-mode checks, got {len(smoke)}'
-          assert not any(case.find('failure') is not None or case.find('error') is not None for case in cases)
-          PY
+        run: python scripts/check-test-evidence.py tests/artifacts/verification.xml
       - name: Verify production identity and MCP authorization against real storage
-        run: python scripts/verify-auth.py
+        run: |
+          python scripts/verify-auth.py
+          python scripts/check-test-evidence.py tests/artifacts/auth-verification.xml --focused
       - name: Upload integration evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4

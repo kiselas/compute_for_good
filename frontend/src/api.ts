@@ -1,4 +1,4 @@
-import { getLocale } from "./i18n";
+import { getLocale, t } from "./i18n";
 
 export interface User {
   id: string;
@@ -160,34 +160,57 @@ export async function api<T>(
   path: string,
   body?: unknown,
   method?: string,
+  options: { signal?: AbortSignal } = {},
 ): Promise<T> {
-  const response = await fetch("/api" + path, {
-    credentials: "include",
-    method: method ?? (body === undefined ? "GET" : "POST"),
-    headers: {
-      "Content-Type": "application/json",
-      "Accept-Language": getLocale(),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(csrfToken &&
-      !token &&
-      (method ?? (body === undefined ? "GET" : "POST")) !== "GET"
-        ? { "X-CSRF-Token": csrfToken }
-        : {}),
-    },
-    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
-  });
-  if (!response.ok) {
-    let message = "Request failed ({status})";
-    try {
-      const data = await response.json();
-      message =
-        typeof data.detail === "string"
-          ? data.detail
-          : JSON.stringify(data.detail ?? data);
-    } catch {
-      /* response may be empty */
+  const controller = new AbortController();
+  const cancel = () => controller.abort(options.signal?.reason);
+  if (options.signal?.aborted) cancel();
+  else options.signal?.addEventListener("abort", cancel, { once: true });
+  let timedOut = false;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    controller.abort();
+  }, 30_000);
+  try {
+    const response = await fetch("/api" + path, {
+      signal: controller.signal,
+      credentials: "include",
+      method: method ?? (body === undefined ? "GET" : "POST"),
+      headers: {
+        "Content-Type": "application/json",
+        "Accept-Language": getLocale(),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...(csrfToken &&
+        !token &&
+        (method ?? (body === undefined ? "GET" : "POST")) !== "GET"
+          ? { "X-CSRF-Token": csrfToken }
+          : {}),
+      },
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    });
+    if (!response.ok) {
+      let message = t("Request failed ({status})", { status: response.status });
+      try {
+        const data = await response.json();
+        message =
+          typeof data.detail === "string"
+            ? data.detail
+            : JSON.stringify(data.detail ?? data);
+      } catch (error) {
+        if (controller.signal.aborted) throw error;
+        /* response may be empty */
+      }
+      throw new ApiError(response.status, message);
     }
-    throw new ApiError(response.status, message);
+    // Await the body too: a response can stall after sending its headers.
+    return response.status === 204 ? (null as T) : await response.json();
+  } catch (error) {
+    if (timedOut && !options.signal?.aborted) {
+      throw new ApiError(0, t("The request timed out. Check your workspace before trying again."));
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+    options.signal?.removeEventListener("abort", cancel);
   }
-  return response.status === 204 ? (null as T) : response.json();
 }

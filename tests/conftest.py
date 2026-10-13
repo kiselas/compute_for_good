@@ -10,6 +10,14 @@ import pytest
 from sqlalchemy import MetaData, Table, create_engine, insert
 
 
+def pytest_collection_modifyitems(items):
+    for item in items:
+        # Fixture closure includes transitive storage/HTTP dependencies. These
+        # are selection labels, not skips; the full run executes every item.
+        if {'api', 'database'} & set(item.fixturenames) or item.path.name == 'test_production_smoke.py' or item.name == 'test_actual_websocket_through_caddy_and_nginx_committed_public_change':
+            item.add_marker(pytest.mark.integration)
+
+
 @dataclass(frozen=True)
 class Actor:
     id: str
@@ -38,7 +46,11 @@ def database(api):
     metadata = MetaData()
 
     def table(name):
-        return Table(name, metadata, autoload_with=engine, extend_existing=True)
+        # The schema is fixed for this run. Reflection also loads FK targets;
+        # reuse those instead of querying pg_catalog on every fixture access.
+        if name not in metadata.tables:
+            Table(name, metadata, autoload_with=engine)
+        return metadata.tables[name]
 
     yield SimpleNamespace(engine=engine, table=table)
     engine.dispose()

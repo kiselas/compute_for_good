@@ -23,9 +23,9 @@ export default function ActivityCalendar({ username }: { username: string }) {
   const [kind, setKind] = useState<Kind>("all");
   const [selected, setSelected] = useState<string | null>(null);
   const path = `/people/${encodeURIComponent(username)}/activity${year ? `?year=${year}` : ""}`;
-  const query = useQuery<ActivityYear>({ queryKey: [path], queryFn: () => api(path) });
+  const query = useQuery<ActivityYear>({ queryKey: [path], queryFn: ({ signal }) => api(path, undefined, undefined, { signal }) });
   const dayPath = `/people/${encodeURIComponent(username)}/activity/day?day=${selected ?? ""}`;
-  const detail = useQuery<{ items: { submission_id: string; kind: string; title: string; project: string }[]; limit: number }>({ queryKey: [dayPath], queryFn: () => api(dayPath), enabled: !!selected });
+  const detail = useQuery<{ items: { submission_id: string; kind: string; title: string; project: string }[]; limit: number }>({ queryKey: [dayPath], queryFn: ({ signal }) => api(dayPath, undefined, undefined, { signal }), enabled: !!selected });
   const evidence = detail.data?.items.filter(item => kind === "all" || item.kind === (kind === "reviews" ? "review" : "contribution")) ?? [];
   const cells = useMemo(() => query.data ? calendarCells(query.data) : [], [query.data]);
   const count = (day: NonNullable<typeof cells[number]>) => kind === "all" ? day.contributions + day.reviews : day[kind];

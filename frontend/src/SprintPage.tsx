@@ -26,14 +26,14 @@ function Catalog() {
   const [params] = useSearchParams();
   const demo = params.get("demo") === "true";
   const path = `/sprints?demo=${demo}`;
-  const query = useQuery<Sprint[]>({ queryKey: [path], queryFn: () => api(path) });
+  const query = useQuery<Sprint[]>({ queryKey: [path], queryFn: ({ signal }) => api(path, undefined, undefined, { signal }) });
   return <><div className="page-heading"><div><div className="eyebrow">{t("CONTRIBUTE TOGETHER")}</div><h1>{t("Contribution sprints")}</h1><p>{t("A clear shared goal, scoped tasks and a maintainer who can accept the result.")}</p></div><Flag size={40} /></div>{demo && <p className="info-strip">{t("Demo recognition is separate from real contribution rankings.")}</p>}{query.isPending ? <p aria-busy="true">{t("Loading sprints…")}</p> : query.isError ? <div className="error-box" role="alert"><p>{t("Sprints are temporarily unavailable.")}</p><button type="button" className="button secondary" onClick={() => void query.refetch()}>{t("Try again")}</button></div> : query.data?.length ? <div className="sprint-grid">{query.data.map(value => <SprintCard key={value.id} value={value} />)}</div> : <section className="panel"><h2>{t("The next sprint is being prepared")}</h2><p>{t("Published sprints appear here once the maintainer has prepared available tasks.")}</p><Link className="button secondary" to="/tasks">{t("Find tasks")}</Link></section>}</>;
 }
 
 function Detail({ slug }: { slug: string }) {
   const { locale } = useLocale();
   const path = `/sprints/${encodeURIComponent(slug)}`;
-  const query = useQuery<Sprint>({ queryKey: [path], queryFn: () => api(path) });
+  const query = useQuery<Sprint>({ queryKey: [path], queryFn: ({ signal }) => api(path, undefined, undefined, { signal }) });
   if (query.isPending) return <p aria-busy="true">{t("Loading sprints…")}</p>;
   if (query.isError || !query.data) return <div className="error-box" role="alert"><p>{t("This sprint is unavailable.")}</p><Link to="/sprints">{t("Contribution sprints")}</Link></div>;
   const sprint = query.data;
