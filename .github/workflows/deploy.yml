@@ -37,7 +37,7 @@ jobs:
       actions: read
       packages: write
     steps:
-      - name: Verify exact main SHA and successful CI
+      - name: Verify exact main SHA
         id: release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -48,23 +48,18 @@ jobs:
           [[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]] || { echo 'A full lowercase commit SHA is required'; exit 1; }
           head=$(gh api "repos/$REPOSITORY/branches/main" --jq '.commit.sha')
           [ "$CANDIDATE_SHA" = "$head" ] || { echo 'Refusing stale or non-main deployment'; exit 1; }
-          gh api -X GET "repos/$REPOSITORY/actions/workflows/ci.yml/runs" \
-            -f head_sha="$CANDIDATE_SHA" -f branch=main -f event=push -f status=success -f per_page=100 \
-            --jq '.workflow_runs' > "$RUNNER_TEMP/ci-runs.json"
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          runs = json.loads((Path(os.environ['RUNNER_TEMP']) / 'ci-runs.json').read_text())
-          assert any(run['head_sha'] == os.environ['CANDIDATE_SHA'] and run['head_branch'] == 'main'
-                     and run['event'] == 'push' and run['conclusion'] == 'success'
-                     and run['head_repository']['full_name'] == os.environ['REPOSITORY']
-                     for run in runs), 'Successful main push CI for this exact commit is required'
-          PY
           echo "sha=$CANDIDATE_SHA" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           ref: ${{ steps.release.outputs.sha }}
           persist-credentials: false
+      - name: Verify successful CI before publishing or deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ steps.release.outputs.sha }}
+          REPOSITORY: ${{ github.repository }}
+          TRIGGER_RUN_ID: ${{ github.event.workflow_run.id }}
+        run: python scripts/check-deploy-ci.py
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
