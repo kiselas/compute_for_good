@@ -9,13 +9,13 @@ export function saveSprint(path: string, body: unknown) {
   return api(path, body);
 }
 
-export default function SprintBuilder({ projectId, tasks }: { projectId: string; tasks: Task[] }) {
+export default function SprintBuilder({ projectId, tasks, userId }: { projectId: string; tasks: Task[]; userId: string }) {
   const { locale } = useLocale();
   const client = useQueryClient();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const path = `/maintainer/projects/${encodeURIComponent(projectId)}/sprints`;
-  const query = useQuery<Sprint[]>({ queryKey: [path], queryFn: () => api(path) });
+  const query = useQuery<Sprint[]>({ queryKey: [path, userId], queryFn: ({ signal }) => api(path, undefined, undefined, { signal }) });
   async function run(url: string, body: unknown) {
     setBusy(true); setError("");
     try { await saveSprint(url, body); await client.invalidateQueries({ queryKey: [path] }); await client.invalidateQueries({ queryKey: ["/sprints?demo=false"] }); return true; }

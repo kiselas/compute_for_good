@@ -71,8 +71,8 @@ export default function MaintainerWorkspace({ projectId, user }: { projectId?: s
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<unknown>(null);
   const [notice, setNotice] = useState(false);
-  const list = useQuery({ queryKey: ["maintainer", "projects", user?.id], queryFn: () => api<Project[]>("/maintainer/projects"), enabled: !!user && !projectId });
-  const plan = useQuery({ queryKey: ["maintainer", projectId, user?.id], queryFn: () => api<Plan>(`/maintainer/projects/${projectId}/plan`), enabled: !!user && !!projectId });
+  const list = useQuery({ queryKey: ["maintainer", "projects", user?.id], queryFn: ({ signal }) => api<Project[]>("/maintainer/projects", undefined, undefined, { signal }), enabled: !!user && !projectId });
+  const plan = useQuery({ queryKey: ["maintainer", projectId, user?.id], queryFn: ({ signal }) => api<Plan>(`/maintainer/projects/${projectId}/plan`, undefined, undefined, { signal }), enabled: !!user && !!projectId });
   const run: RunAction = async (path, body, method, onSuccess) => {
     setBusy(true); setActionError(null); setNotice(false);
     try {
@@ -119,7 +119,7 @@ export default function MaintainerWorkspace({ projectId, user }: { projectId?: s
       <strong>{t(ready ? "Repository verified" : "Prepare the roadmap before publication")}</strong>
       <p>{t(ready ? "Publication still checks the project's readiness, task scope, and approved improvement." : "Your plan and drafts are private working material. An operator must verify repository ownership and readiness before tasks can be published.")}</p>
     </div><span className="badge">{readable(data.project.status)}</span></section>
-    <SprintBuilder projectId={data.project.id} tasks={data.tasks} />
+    <SprintBuilder projectId={data.project.id} tasks={data.tasks} userId={user.id} />
     <div className="maintainer-tabs" role="tablist" aria-label={t("Project planning views")}>
       {([ ["goals", "Goals", data.goals.length], ["improvements", "Improvements", data.improvements.length], ["tasks", "Tasks", data.tasks.length], ["results", "Results", data.tasks.filter(task => task.status === "MERGED").length] ] as const).map(([id, title, count]) =>
         <button key={id} type="button" role="tab" id={`maintainer-tab-${id}`} aria-selected={tab === id} aria-controls={`maintainer-panel-${id}`} tabIndex={tab === id ? 0 : -1} className={tab === id ? "active" : ""} onClick={() => setTab(id)} onKeyDown={event => {

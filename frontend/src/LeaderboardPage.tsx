@@ -13,7 +13,7 @@ export default function LeaderboardPage() {
   const requestedOffset = Number(params.get("offset") ?? 0);
   const offset = Number.isInteger(requestedOffset) && requestedOffset >= 0 && requestedOffset <= 10000 ? requestedOffset : 0;
   const path = `/leaderboard?metric=${metric}&period=${period}&limit=25&offset=${offset}&demo=${demo}`;
-  const query = useQuery<Leaderboard>({ queryKey: [path], queryFn: () => api(path) });
+  const query = useQuery<Leaderboard>({ queryKey: [path], queryFn: ({ signal }) => api(path, undefined, undefined, { signal }) });
   function change(key: string, value: string) {
     const next = new URLSearchParams(params);
     next.set(key, value);

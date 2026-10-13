@@ -76,6 +76,7 @@ import LanguageSwitcher from "./LanguageSwitcher";
 import { readLeaseToken, writeLeaseToken } from "./leaseStorage";
 import { initialPermitState, permitReducer, permitIsValid, leaseIsUsable, submissionPayload, type SubmissionPermit } from "./permitState";
 import { sessionPhase, type SessionPhase } from "./sessionState";
+import { replaceAuthSession, resetSessionQueries } from "./sessionCache";
 import SessionBoundary from "./SessionBoundary";
 import RecognitionPanel from "./RecognitionPanel";
 import ContributionShare, { ReadmeBadge } from "./ShareTools";
@@ -100,7 +101,7 @@ function useData<T>(path: string, enabled = true) {
   const { user } = useContext(Session);
   return useQuery<T>({
     queryKey: [path, user?.id ?? "public"],
-    queryFn: () => api<T>(path),
+    queryFn: ({ signal }) => api<T>(path, undefined, undefined, { signal }),
     enabled,
   });
 }
@@ -344,7 +345,7 @@ function useAction() {
     run: async <T,>(
       path: string,
       body: unknown,
-      success?: (result: T) => void,
+      success?: (result: T) => void | Promise<void>,
       method?: string,
     ) => {
       setBusy(true);
@@ -352,7 +353,7 @@ function useAction() {
       setMessage("");
       try {
         const data = await api<T>(path, body, method);
-        success?.(data);
+        await success?.(data);
         setMessage("Saved. Your workspace is up to date.");
         await client.invalidateQueries();
       } catch (e) {
@@ -429,17 +430,17 @@ export default function App() {
   const [connected, setConnected] = useState(false);
   const health = useQuery<{ demo_mode: boolean }>({
     queryKey: ["health"],
-    queryFn: () => api("/health"),
+    queryFn: ({ signal }) => api("/health", undefined, undefined, { signal }),
   });
   const auth = useQuery<AuthSession>({
     queryKey: ["auth-session"],
-    queryFn: () => api("/auth/session"),
+    queryFn: ({ signal }) => api("/auth/session", undefined, undefined, { signal }),
     retry: false,
   });
   const demo = health.data?.demo_mode === true;
   const users = useQuery<User[]>({
     queryKey: ["demo-users"],
-    queryFn: () => api("/demo/users"),
+    queryFn: ({ signal }) => api("/demo/users", undefined, undefined, { signal }),
     enabled: demo,
     retry: false,
   });
@@ -577,9 +578,10 @@ export default function App() {
             <select
               aria-label={t("Demo identity")}
               value={demoUser?.id ?? ""}
-              onChange={(e) => {
+              onChange={async (e) => {
                 const next =
                   users.data?.find((u) => u.id === e.target.value) ?? null;
+                await resetSessionQueries(client);
                 setToken(next?.token);
                 chooseDemo(next);
                 void client.invalidateQueries();
@@ -2670,9 +2672,8 @@ function AuthPage({ register = false }: { register?: boolean }) {
             void action.run<AuthSession>(
               register ? "/auth/register" : "/auth/login",
               { username: f.get("username"), password: f.get("password") },
-              (result) => {
-                setCsrfToken(result.csrf_token);
-                client.setQueryData(["auth-session"], result);
+              async (result) => {
+                await replaceAuthSession(client, result);
                 navigate(returnTo);
               },
             );
@@ -2914,9 +2915,8 @@ function AccountPage() {
               className="button secondary"
               disabled={action.busy}
               onClick={() => {
-                void action.run("/auth/logout", {}, () => {
-                  setCsrfToken(null);
-                  client.setQueryData(["auth-session"], {
+                void action.run("/auth/logout", {}, async () => {
+                  await replaceAuthSession(client, {
                     user: null,
                     csrf_token: null,
                   });

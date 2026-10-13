@@ -87,3 +87,17 @@ test('owner sprint mutations reach the real HTTP adapter as contracts, never Req
   assert.equal(requests[0].url, '/api/maintainer/projects/project-1/sprints');
   assert.ok(requests.every(r => r.method === 'POST' && r.credentials === 'include' && r.headers['Content-Type'] === 'application/json'));
 });
+
+test('owner sprint drafts never render from another identity cache', async () => {
+  const builder = await load('../src/SprintBuilder.tsx');
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const path = '/maintainer/projects/project-1/sprints';
+  const draft = { id: 'draft-1', status: 'DRAFT', title: { en: 'Private owner draft' }, version: 1 };
+  client.setQueryData([path, 'owner-a'], [draft]);
+  const view = userId => renderToStaticMarkup(React.createElement(QueryClientProvider, { client },
+    React.createElement(MemoryRouter, null, React.createElement(builder.default, { projectId: 'project-1', tasks: [], userId }))));
+  try {
+    assert.match(view('owner-a'), /Private owner draft/);
+    assert.doesNotMatch(view('owner-b'), /Private owner draft/);
+  } finally { client.clear(); }
+});
