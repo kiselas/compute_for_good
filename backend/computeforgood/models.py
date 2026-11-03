@@ -197,6 +197,18 @@ class Submission(Base):
     human_approved: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
+class MaintainerApproval(Base):
+    __tablename__ = "maintainer_approvals"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)
+    submission_id: Mapped[str] = mapped_column(ForeignKey("submissions.id"), index=True)
+    head_sha: Mapped[str] = mapped_column(String(64))
+    maintainer_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    approved: Mapped[bool] = mapped_column(Boolean)
+    reason: Mapped[str] = mapped_column(Text)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    __table_args__ = (UniqueConstraint("submission_id", "head_sha", "maintainer_id"),)
+
+
 class Review(Base):
     __tablename__ = "reviews"
     id: Mapped[str] = mapped_column(String(64), primary_key=True, default=uid)

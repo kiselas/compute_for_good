@@ -1041,5 +1041,13 @@
   "Code guardian": "代码守护者",
   "Superpower: noticing the details.": "超能力：发现细节。",
   "Getting there": "已有进展",
-  "Still ahead": "待解锁"
+  "Still ahead": "待解锁",
+  "Project owner approval or independent review quorum.": "项目所有者批准，或独立评审达到法定数量。",
+  "Accepted by the project owner for this commit.": "项目所有者已接受此提交。",
+  "Project owner acceptance": "项目所有者验收",
+  "Accept this commit instead of waiting for independent approvals. CI and the upstream merge remain required.": "接受此提交，无需等待独立批准。仍需通过 CI 检查并由上游合并。",
+  "Review objections remain recorded. Explain why you accept this commit despite them.": "评审异议将保留。请解释为何仍接受此提交。",
+  "Reason for the owner decision": "所有者决定的理由",
+  "Withdraw owner acceptance": "撤回所有者验收",
+  "Accept as project owner": "以项目所有者身份接受"
 }

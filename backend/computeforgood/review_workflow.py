@@ -12,7 +12,7 @@ from sqlalchemy import func, or_, select, tuple_, update
 
 from . import services as s
 from .config import settings
-from .models import FindingResolution, Project, Review, ReviewLease, ReviewWorkItem, Submission, Task, User
+from .models import FindingResolution, MaintainerApproval, Project, Review, ReviewLease, ReviewWorkItem, Submission, Task, User
 from .schemas import SubmissionBody, TokenBody
 
 
@@ -166,6 +166,11 @@ def ensure_review_work(db, submission):
 
 def head_changed(db, submission):
     """Invalidate leased review work for prior commits without reopening implementation work."""
+    # A later return to an old SHA must not resurrect the owner's old decision.
+    db.execute(update(MaintainerApproval).where(
+        MaintainerApproval.submission_id == submission.id,
+        MaintainerApproval.approved.is_(True),
+    ).values(approved=False))
     db.execute(update(ReviewLease).where(
         ReviewLease.submission_id == submission.id, ReviewLease.head_sha != submission.head_sha,
         ReviewLease.status == 'ACTIVE',
@@ -319,6 +324,8 @@ def submit_review(db, submission_id, body, user):
             s.fail(409, 'Review lease does not match this submission head')
     elif not (settings.demo_mode and submission.is_demo):
         s.fail(403, 'A valid independent review lease is required')
+    if s.quorum(db, submission).get('maintainer_approved'):
+        s.fail(409, 'Project owner accepted this head; independent review is no longer needed')
     result = s.review(db, submission_id, body, user)
     ensure_review_work(db, submission)
     if lease:

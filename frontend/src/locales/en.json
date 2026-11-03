@@ -1041,5 +1041,13 @@
   "Code guardian": "Code guardian",
   "Superpower: noticing the details.": "Superpower: noticing the details.",
   "Getting there": "Getting there",
-  "Still ahead": "Still ahead"
+  "Still ahead": "Still ahead",
+  "Project owner approval or independent review quorum.": "Project owner approval or independent review quorum.",
+  "Accepted by the project owner for this commit.": "Accepted by the project owner for this commit.",
+  "Project owner acceptance": "Project owner acceptance",
+  "Accept this commit instead of waiting for independent approvals. CI and the upstream merge remain required.": "Accept this commit instead of waiting for independent approvals. CI and the upstream merge remain required.",
+  "Review objections remain recorded. Explain why you accept this commit despite them.": "Review objections remain recorded. Explain why you accept this commit despite them.",
+  "Reason for the owner decision": "Reason for the owner decision",
+  "Withdraw owner acceptance": "Withdraw owner acceptance",
+  "Accept as project owner": "Accept as project owner"
 }

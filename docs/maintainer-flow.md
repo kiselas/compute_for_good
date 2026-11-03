@@ -80,3 +80,13 @@ The shared fixtures refuse a demo-free backend and leave unique QA fixtures for 
 - Frontend: 874 keys in all three languages, locale checks, TypeScript and Vite passed. Browser checks created a goal, approved a proposal, drafted/published a task, paused the goal (draft withdrawn and publish disabled), resumed and explicitly republished it. Result navigation opened the canonical submission.
 - Both main and production-smoke web origins returned `/api/ready` with database, Redis, coordination worker and integration worker ready. Schema head: `8d21f6ae903b`. The QA stack is stopped after verification with its data preserved.
 - Local demo evidence: `artifacts/maintainer-desktop.png`, `artifacts/maintainer-mobile.png`. Backup before applying the migration: `artifacts/backups/cfg-20261003-141205.dump`.
+
+
+### Accepting a contribution as project owner
+
+On a submission, the signed-in project owner can choose **Accept as project owner**
+and give a reason after reviewing the exact commit and any findings. This is an
+alternative to the independent review quorum, including two reviewers for NORMAL
+work. It creates an owner decision, never synthetic independent reviews. The owner
+can withdraw the decision. A new commit requires fresh acceptance; CI and the
+upstream merge decision remain necessary for completion and credit.

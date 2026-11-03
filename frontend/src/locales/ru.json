@@ -1041,5 +1041,13 @@
   "Code guardian": "На страже кода",
   "Superpower: noticing the details.": "Суперсила — замечать детали.",
   "Getting there": "В процессе",
-  "Still ahead": "Ещё впереди"
+  "Still ahead": "Ещё впереди",
+  "Project owner approval or independent review quorum.": "Одобрение владельца проекта либо независимый кворум ревью.",
+  "Accepted by the project owner for this commit.": "Владелец проекта принял этот коммит.",
+  "Project owner acceptance": "Приёмка владельцем проекта",
+  "Accept this commit instead of waiting for independent approvals. CI and the upstream merge remain required.": "Примите этот коммит, не дожидаясь независимых одобрений. Проверки CI и merge в исходном репозитории остаются обязательными.",
+  "Review objections remain recorded. Explain why you accept this commit despite them.": "Замечания ревью сохранятся. Объясните, почему вы принимаете коммит с учётом этих замечаний.",
+  "Reason for the owner decision": "Обоснование решения владельца",
+  "Withdraw owner acceptance": "Отозвать приёмку владельца",
+  "Accept as project owner": "Принять как владелец проекта"
 }
