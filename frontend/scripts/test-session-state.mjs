@@ -25,11 +25,12 @@ vm.runInNewContext(bundle.outputFiles[0].text, { module, exports: module.exports
   setTimeout, clearTimeout, setInterval, clearInterval, URL, URLSearchParams, AbortController });
 const App = module.exports.default;
 
-function render(path, state, user = null) {
+function render(path, state, user = null, extraData = []) {
   // The seeded error represents an already mounted request that failed. Avoid
   // a new observer converting it into an automatic mount retry during SSR.
   const client = new QueryClient({ defaultOptions: { queries: { retry: false, retryOnMount: false } } });
   client.setQueryData(['health'], { demo_mode: false });
+  for (const [route, data] of extraData) client.setQueryData([route, user?.id ?? 'public'], data);
   if (state === 'known' || state === 'cached-error') client.setQueryData(['auth-session'], { user, csrf_token: 'qa-only' });
   if (state === 'error' || state === 'cached-error') {
     const query = client.getQueryCache().build(client, { queryKey: ['auth-session'] });
@@ -94,4 +95,26 @@ test('shared guest prompts on public task/review/connect/onboarding surfaces wai
     assert.doesNotMatch(html, /Log in to start contributing|Create an account or log in to submit a project you maintain|Sign up to get a revocable/);
     if (path === '/tasks/qa-work') assert.match(html, /Public task still available/);
   }
+});
+
+
+test('submission offers owner acceptance without inventing independent approvals', () => {
+  const user = { id: 'qa-owner', username: 'qa-owner', role: 'contributor' };
+  const submission = { id: 'qa-owned', task_id: 'qa-work', author_id: user.id,
+    head_sha: 'a'.repeat(40), pr_url: 'https://github.com/qa/repo/pull/1',
+    created_at: '2026-01-01T00:00:00Z', status: 'REVIEWING', is_demo: false,
+    can_approve_as_maintainer: true, reviews: [],
+    quorum: { required: 2, approved: 0, blocked: false, passed: false, human_required: false } };
+  const show = (record) => render('/submissions/qa-owned', 'known', user, [['/submissions/qa-owned', record]]);
+  const html = show(submission);
+  assert.match(html, /Project owner approval or independent review quorum/);
+  assert.match(html, /Accept as project owner/);
+  assert.match(html, /Reason for the owner decision/);
+  assert.match(html, /<button[^>]*disabled[^>]*>Accept as project owner/);
+  assert.doesNotMatch(show({ ...submission, can_approve_as_maintainer: false }), /Accept as project owner/);
+  assert.doesNotMatch(show({ ...submission, status: 'MERGED' }), /Accept as project owner/);
+  const accepted = show({ ...submission, quorum: { ...submission.quorum, passed: true, maintainer_approved: true, review_blocked: true } });
+  assert.match(accepted, /Accepted by the project owner for this commit/);
+  assert.match(accepted, /Withdraw owner acceptance/);
+  assert.match(accepted, /Review objections remain recorded/);
 });

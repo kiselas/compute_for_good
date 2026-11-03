@@ -2111,8 +2111,12 @@ function SubmissionPage() {
               )}
             </div>
             <aside className="detail-aside">
-              <section className="panel sticky-panel">
+              <section className={s.can_approve_as_maintainer ? "panel" : "panel sticky-panel"}>
                 <div className="summary-label">{t("REVIEW QUORUM")}</div>
+                <p className="muted">{t("Project owner approval or independent review quorum.")}</p>
+                {s.quorum.maintainer_approved && (
+                  <p className="human-note">{t("Accepted by the project owner for this commit.")}</p>
+                )}
                 {s.quorum.blind && s.quorum.reviews_completed === undefined ? (
                   <h3>{t("Progress blinded")}</h3>
                 ) : (
@@ -2199,11 +2203,42 @@ function SubmissionPage() {
                   </>
                 )}
               </section>
+              {s.can_approve_as_maintainer && !["MERGED", "CLOSED", "INVALID"].includes(s.status) && (
+                <MaintainerDecision submission={s} />
+              )}
             </aside>
           </div>
         </>
       )}
     </DataState>
+  );
+}
+
+function MaintainerDecision({ submission: s }: { submission: Submission }) {
+  const { user } = useContext(Session);
+  const action = useAction();
+  const [form, setForm] = useState({ head: s.head_sha, reason: "" });
+  useEffect(() => {
+    setForm({ head: s.head_sha, reason: "" });
+  }, [s.id, s.head_sha, user?.id]);
+  return (
+    <section className="panel">
+      <h2>{t("Project owner acceptance")}</h2>
+      <p className="muted">{t("Accept this commit instead of waiting for independent approvals. CI and the upstream merge remain required.")}</p>
+      {s.quorum.review_blocked && <p className="human-note">{t("Review objections remain recorded. Explain why you accept this commit despite them.")}</p>}
+      <label>
+        {t("Reason for the owner decision")}
+        <textarea value={form.reason} minLength={10} maxLength={10000}
+          onChange={(event) => setForm({ head: s.head_sha, reason: event.target.value })} />
+      </label>
+      <button className="button full" disabled={action.busy || form.head !== s.head_sha || form.reason.trim().length < 10}
+        onClick={() => { void action.run(`/submissions/${s.id}/maintainer-approval`, {
+          head_sha: form.head, approved: !s.quorum.maintainer_approved, reason: form.reason,
+        }); }}>
+        {s.quorum.maintainer_approved ? t("Withdraw owner acceptance") : t("Accept as project owner")}
+      </button>
+      <ActionFeedback action={action} />
+    </section>
   );
 }
 

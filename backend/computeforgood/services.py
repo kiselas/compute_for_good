@@ -13,7 +13,7 @@ from fastapi import HTTPException
 from sqlalchemy import and_, case, func, or_, select, update
 from sqlalchemy.orm import object_session
 from .config import settings
-from .models import ApiCredential, Checkpoint, Event, FindingResolution, ImpactCredit, Lease, Permit, Project, Review, Submission, Task, User, WebhookDelivery
+from .models import ApiCredential, Checkpoint, Event, FindingResolution, ImpactCredit, Lease, MaintainerApproval, Permit, Project, Review, Submission, Task, User, WebhookDelivery
 
 TIERS = {"BASIC": 0, "STRONG": 1, "FRONTIER": 2}
 MIN_TIER = {"LOW": "BASIC", "NORMAL": "STRONG", "HIGH": "FRONTIER", "CRITICAL": "FRONTIER"}
@@ -153,17 +153,31 @@ def quorum(db, submission):
                 resolution = db.scalar(select(FindingResolution).where(FindingResolution.review_id == r.id, FindingResolution.finding_index == index))
                 if not resolution or (submission.head_sha == r.head_sha and resolution.head_sha != submission.head_sha):
                     blocked = True
-    return {"required": QUORUM[task.risk], "approved": approved, "blocked": blocked, "passed": approved >= QUORUM[task.risk] and not blocked, "human_required": task.risk == "CRITICAL"}
+    # Owner acceptance is a distinct authority, never a synthetic independent vote.
+    owner_approval = db.scalar(select(MaintainerApproval.id).join(
+        Project, Project.maintainer_id == MaintainerApproval.maintainer_id,
+    ).join(User, User.id == MaintainerApproval.maintainer_id).where(
+        MaintainerApproval.submission_id == submission.id,
+        MaintainerApproval.head_sha == submission.head_sha,
+        MaintainerApproval.approved.is_(True),
+        Project.id == task.project_id, Project.status == "VERIFIED", User.suspended.is_(False),
+    )) is not None
+    return {"required": QUORUM[task.risk], "approved": approved,
+            "blocked": blocked and not owner_approval, "review_blocked": blocked,
+            "passed": owner_approval or (approved >= QUORUM[task.risk] and not blocked),
+            "maintainer_approved": owner_approval, "human_required": task.risk == "CRITICAL"}
 
 
 def submission_dto(db, row, user=None, include_reviews=False):
     result = {key: getattr(row, key) for key in ("id", "task_id", "author_id", "pr_url", "head_sha", "status", "created_at", "is_demo", "checks_passed")}
     own = user and db.scalar(select(Review.id).where(Review.submission_id == row.id, Review.reviewer_id == user.id, Review.head_sha == row.head_sha))
     task = db.get(Task, row.task_id)
+    result["can_approve_as_maintainer"] = bool(user and not user.suspended and browser_maintainer(db, task.project_id, user))
     visible = user and (browser_operator(user) or user.id == row.author_id or own or browser_maintainer(db, task.project_id, user))
     q = quorum(db, row)
     if not visible:
-        q = {**q, "approved": 0, "blocked": False, "passed": False, "blind": True}
+        q = {**q, "approved": 0, "blocked": False, "passed": False, "blind": True,
+             "maintainer_approved": False, "review_blocked": False}
         if row.status in {"CHANGES_NEEDED", "AWAITING_MAINTAINER", "REVIEW_PASSED"}:
             result["status"] = "REVIEWING"
     result["quorum"] = q

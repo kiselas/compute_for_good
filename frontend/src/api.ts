@@ -99,6 +99,7 @@ export interface Review {
   is_current: boolean;
 }
 export interface Submission {
+  can_approve_as_maintainer?: boolean;
   task_title?: string;
   id: string;
   task_id: string;
@@ -113,6 +114,8 @@ export interface Submission {
     blocked: boolean;
     passed: boolean;
     human_required: boolean;
+    maintainer_approved?: boolean;
+    review_blocked?: boolean;
     blind?: boolean;
     reviews_completed?: number;
   };

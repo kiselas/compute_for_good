@@ -388,6 +388,8 @@ from .maintainer_planning import create_planning_router
 from .reputation import create_reputation_router
 from .public_growth import create_growth_router
 from .sprints import create_sprint_router
+from .maintainer_approval import create_approval_router
+api.include_router(create_approval_router(database, required_user))
 api.include_router(create_review_router(database, required_user))
 api.include_router(create_project_router(database, required_user))
 api.include_router(create_reputation_router(database))
